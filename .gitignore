@@ -1,0 +1,4 @@
+node_modules
+
+# Gemini and shell history persistent backup (synced via OneDrive)
+.gemini_backup/
