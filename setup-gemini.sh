@@ -28,7 +28,10 @@ else
         WORKSPACE_DIR="$PWD"
     fi
 fi
-BACKUP_FILE="$WORKSPACE_DIR/.gemini_backup/gemini-data-latest.tar.gz"
+BACKUP_DIR="$WORKSPACE_DIR/.gemini_backup"
+BACKUP_FILE="$BACKUP_DIR/gemini-data-latest.tar.gz"
+REMOTE_TIMESTAMP_FILE="$BACKUP_DIR/.last_backup_timestamp"
+LOCAL_TIMESTAMP_FILE="$DATA_DIR/.last_backup_timestamp"
 
 # --- ヘルスチェック（自己診断）モード ---
 run_health_check() {
@@ -112,6 +115,21 @@ run_health_check() {
         echo " [WARN] Git user.name and user.email are not set"
     fi
 
+    # 11. Gemini backup & timestamp sync status
+    if [ -f "$REMOTE_TIMESTAMP_FILE" ] || [ -f "$LOCAL_TIMESTAMP_FILE" ]; then
+        REMOTE_TS=$(cat "$REMOTE_TIMESTAMP_FILE" 2>/dev/null || echo 0)
+        LOCAL_TS=$(cat "$LOCAL_TIMESTAMP_FILE" 2>/dev/null || echo 0)
+        if [ "$REMOTE_TS" -eq "$LOCAL_TS" ] && [ "$REMOTE_TS" -gt 0 ]; then
+            echo " [OK] Backup timestamps in sync (Timestamp: $REMOTE_TS)"
+        elif [ "$REMOTE_TS" -gt "$LOCAL_TS" ]; then
+            echo " [WARN] Remote backup is newer ($REMOTE_TS > $LOCAL_TS). Run 'backup-gemini --sync'"
+        else
+            echo " [INFO] Local data has updates since last backup (Local: $LOCAL_TS, Remote: $REMOTE_TS)"
+        fi
+    else
+        echo " [INFO] No backup timestamps found yet"
+    fi
+
     echo "==============================================="
     if [ "$all_ok" = true ]; then
         echo "All essential configurations are healthy!"
@@ -139,12 +157,34 @@ fi
 echo "Setting ownership of $DATA_DIR to $(id -un):$(id -gn) ($(id -u):$(id -g))..."
 sudo chown -R "$(id -u):$(id -g)" "$DATA_DIR"
 
-# 2.5. 新規環境かつバックアップが存在する場合は自動リストア
+# 2.5. 新規環境またはリモートバックアップが新しい場合は自動リストア
+should_restore=false
 if [ ! -d "$DATA_DIR/antigravity" ] && [ -f "$BACKUP_FILE" ]; then
-    echo "Found existing backup at $BACKUP_FILE. Restoring to $DATA_DIR..."
-    tar -xzf "$BACKUP_FILE" -C "$DATA_DIR"
-    sudo chown -R "$(id -u):$(id -g)" "$DATA_DIR"
-    echo " [OK] Restore completed successfully!"
+    echo "Found existing backup at $BACKUP_FILE for fresh environment."
+    should_restore=true
+elif [ -f "$BACKUP_FILE" ] && [ -f "$REMOTE_TIMESTAMP_FILE" ]; then
+    REMOTE_TS=$(cat "$REMOTE_TIMESTAMP_FILE" 2>/dev/null || echo 0)
+    LOCAL_TS=$(cat "$LOCAL_TIMESTAMP_FILE" 2>/dev/null || echo 0)
+    if [ "$REMOTE_TS" -gt "$LOCAL_TS" ]; then
+        echo "Remote backup is newer than local storage ($REMOTE_TS > $LOCAL_TS). Auto-syncing..."
+        should_restore=true
+    fi
+fi
+
+if [ "$should_restore" = true ]; then
+    echo "Restoring data from $BACKUP_FILE to $DATA_DIR..."
+    if tar -tzf "$BACKUP_FILE" >/dev/null 2>&1; then
+        tar -xzf "$BACKUP_FILE" -C "$DATA_DIR"
+        sudo chown -R "$(id -u):$(id -g)" "$DATA_DIR"
+        if [ -f "$REMOTE_TIMESTAMP_FILE" ]; then
+            cp -f "$REMOTE_TIMESTAMP_FILE" "$LOCAL_TIMESTAMP_FILE"
+        else
+            date +%s > "$LOCAL_TIMESTAMP_FILE"
+        fi
+        echo " [OK] Restore completed successfully!"
+    else
+        echo " [WARN] Backup archive is corrupted or currently syncing. Skipping restore."
+    fi
 fi
 
 # 2.6. node_modules の所有権を実行ユーザーに設定（ボリュームマウント時の root 所有対策）
