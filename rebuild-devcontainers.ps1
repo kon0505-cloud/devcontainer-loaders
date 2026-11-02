@@ -77,7 +77,14 @@ Write-Host "📂 $searchRoot 配下から .devcontainer フォルダを探して
 
 # 3. .devcontainer フォルダの探索（-Depth 4 で探索を高速化し、node_modules 等の深追いを防止）
 $targets = Get-ChildItem -Path $searchRoot -Directory -Recurse -Depth 4 -Filter ".devcontainer" -Force -ErrorAction SilentlyContinue | 
-           ForEach-Object { $_.Parent.FullName } | 
+           ForEach-Object { 
+               $p = $_.Parent.FullName
+               # VS Code / Docker ラベル仕様に合わせてドライブ文字を小文字に統一
+               if ($p -match '^[a-zA-Z]:') {
+                   $p = $p.Substring(0, 1).ToLower() + $p.Substring(1)
+               }
+               $p
+           } | 
            Select-Object -Unique
 
 if (-not $targets -or $targets.Count -eq 0) {
@@ -93,6 +100,11 @@ $failCount = 0
 $skippedCount = 0
 
 foreach ($project in $targets) {
+    # ドライブ文字を確実に小文字化（c:\...）
+    if ($project -match '^[a-zA-Z]:') {
+        $project = $project.Substring(0, 1).ToLower() + $project.Substring(1)
+    }
+
     $devcontainerDir = Join-Path $project ".devcontainer"
 
     # 共通 Feature (my-gemini-tools) のローカルコピー同期（-LocalFeature 指定時のみ実行）
