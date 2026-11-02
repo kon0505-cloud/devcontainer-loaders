@@ -2,7 +2,9 @@
 # devcontainer 差分検知 ＆ 自動停止（省メモリ）リビルドスクリプト
 # ==============================================================================
 param (
-    [switch]$Force # -Force を付けて実行すると差分に関係なく全件強制リビルド
+    [switch]$Force,    # -Force を付けて実行すると差分に関係なく全件強制リビルド
+    [Alias("LinkJunction", "SyncJunction")]
+    [switch]$Junction  # -Junction を付けて実行するとローカル開発用に各プロジェクトへジャンクションを作成・同期
 )
 
 # 1. devcontainer CLI のインストール確認
@@ -36,10 +38,12 @@ if (-not (Test-Path $sourceFeatureDir)) {
     $sourceFeatureDir = Join-Path $scriptDir "my-gemini-tools"
 }
 
-if (Test-Path $sourceFeatureDir) {
-    Write-Host "📦 共通 Feature を検出しました: $sourceFeatureDir" -ForegroundColor Green
-} else {
-    Write-Host "⚠️ 共通 Feature (my-gemini-tools) が見つかりませんでした: $sourceFeatureDir" -ForegroundColor Yellow
+if ($Junction) {
+    if (Test-Path $sourceFeatureDir) {
+        Write-Host "📦 [-Junction] 共通 Feature を検出しました: $sourceFeatureDir" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️ [-Junction] 共通 Feature (my-gemini-tools) が見つかりませんでした: $sourceFeatureDir" -ForegroundColor Yellow
+    }
 }
 
 $searchRoot = "C:\OneDrive"
@@ -90,8 +94,8 @@ $skippedCount = 0
 foreach ($project in $targets) {
     $devcontainerDir = Join-Path $project ".devcontainer"
 
-    # 共通 Feature (my-gemini-tools) のジャンクション作成・同期
-    if ($sourceFeatureDir -and (Test-Path $sourceFeatureDir)) {
+    # 共通 Feature (my-gemini-tools) のジャンクション作成・同期（-Junction 指定時のみ実行）
+    if ($Junction -and $sourceFeatureDir -and (Test-Path $sourceFeatureDir)) {
         $targetJunction = Join-Path $devcontainerDir "my-gemini-tools"
         $normalizedSource = [System.IO.Path]::GetFullPath($sourceFeatureDir).TrimEnd('\', '/')
         $normalizedTarget = [System.IO.Path]::GetFullPath($targetJunction).TrimEnd('\', '/')

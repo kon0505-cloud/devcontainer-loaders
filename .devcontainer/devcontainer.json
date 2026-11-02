@@ -4,7 +4,7 @@
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
 	"features": {
-    	"./my-gemini-tools": {},
+    	"ghcr.io/kon0505-cloud/devcontainer-scripts/my-gemini-tools:latest": {},
 		"ghcr.io/devcontainers/features/python:1": {
 			"version": "latest"
 		},

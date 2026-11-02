@@ -163,22 +163,23 @@ flowchart TD
 }
 ```
 
-#### ✅ 移行後（プロジェクト固有の設定だけにスッキリ！）
+#### ✅ 移行後（GHCR から URL 1行で指定するだけ！）
 ```jsonc
 {
   "name": "my-powershell-app",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/powershell:2.0.3": {},
-    // ★ 自作 Feature を追加（ジャンクション経由）
-    "./my-gemini-tools": {}
+    // ★ GHCR から共通 Feature を取得（ジャンクション不要！）
+    "ghcr.io/kon0505-cloud/devcontainer-scripts/my-gemini-tools:1": {}
   },
   // ★ プロジェクト固有のコマンドだけをシンプルに記述可能
   "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force'"
 }
 ```
 > [!TIP]
-> Feature 側の `postCreateCommand` や `postStartCommand` は、プロジェクト側の設定と競合せず、自動的に両方実行されます。
+> - Feature 側の `postCreateCommand` や `postStartCommand` は、プロジェクト側の設定と競合せず、自動的に両方実行されます。
+> - 手元で Feature 自体を試作・改修する場合は、`"./my-gemini-tools": {}` と記述した上で `.\rebuild-devcontainers.ps1 -Junction` を実行することで、ローカルジャンクション連携も可能です。
 
 ### `.gitignore` の設定
 バックアップデータ（`.gemini_backup`）は OneDrive 等のクラウドストレージで同期するため、Git リポジトリにはコミットしないよう設定します：
@@ -204,6 +205,12 @@ Windows の PowerShell から実行します。自動的に OneDrive 配下の `
 キャッシュを無視して、全プロジェクトを一括リビルドしたい場合：
 ```powershell
 .\rebuild-devcontainers.ps1 -Force
+```
+
+#### ローカルジャンクション作成・同期 (`-Junction`)
+GHCR ではなくローカルの `src/my-gemini-tools` を直接ジャンクションで各プロジェクトにリンクして開発・検証したい場合：
+```powershell
+.\rebuild-devcontainers.ps1 -Junction
 ```
 
 ---
