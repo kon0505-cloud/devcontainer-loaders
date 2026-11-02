@@ -31,6 +31,7 @@ devcontainer-scripts/
 │       ├── devcontainer-feature.json
 │       └── install.sh
 ├── rebuild-devcontainers.ps1   # [Host] 差分検知 ＆ 自動停止（省メモリ）一括リビルドスクリプト
+├── sync-configs.ps1            # [Host] devcontainer.json の集約・一括編集・逆反映（Pull/Push）
 ├── backup-gemini.sh            # [Container] バックアップ/リストア/同期の統合CLI
 ├── setup-gemini.sh             # [Container] 初回作成時の環境自動構成スクリプト
 ├── .devcontainer/
@@ -188,7 +189,39 @@ flowchart TD
 
 ## 💻 使い方・コマンドリファレンス
 
-### 1. ホスト側：一括自動リビルド (`rebuild-devcontainers.ps1`)
+### 1. ホスト側：設定の一括集約 ＆ 反映 (`sync-configs.ps1`)
+
+OneDrive 配下に散らばる各プロジェクトの `devcontainer.json` を手元（`managed-configs/`）に集めて横断検索・一括置換し、元の場所へ安全に書き戻すツールです。
+
+#### A. OneDrive から手元に集約 (`-Pull`)
+全プロジェクトの `devcontainer.json` を探索し、元の絶対パスを記録した `_mapping.json` と共に `managed-configs/` 配下へ階層コピーします。
+```powershell
+.\sync-configs.ps1 -Pull
+```
+> [!TIP]
+> コピー後、VS Code の「フォルダ内を検索（`Ctrl+Shift+F`）」で `managed-configs/` 配下を一括検索し、共通 Feature の URL や設定を一瞬で全プロジェクト横断置換できます。
+
+#### B. 編集差分の確認 (`-Diff`)
+手元の編集内容と、元の OneDrive 上のファイルとの間に差分があるプロジェクトを一覧表示します。
+```powershell
+.\sync-configs.ps1 -Diff
+```
+
+#### C. 元の場所へ書き戻し (`-Push`)
+変更があったファイルだけを元のプロジェクトへ安全に上書き反映します。
+```powershell
+.\sync-configs.ps1 -Push
+```
+
+#### D. 書き戻し後にそのまま一括リビルド (`-Push -Rebuild`)
+書き戻しと同時に、差分検知付き一括リビルドまで一気通貫で自動実行します。
+```powershell
+.\sync-configs.ps1 -Push -Rebuild
+```
+
+---
+
+### 2. ホスト側：一括自動リビルド (`rebuild-devcontainers.ps1`)
 
 Windows の PowerShell から実行します。自動的に OneDrive 配下の `.devcontainer` を探索し、差分ビルドを行います。
 
@@ -211,7 +244,7 @@ GHCR ではなくローカルの `src/my-gemini-tools` を直接各プロジェ�
 
 ---
 
-### 2. コンテナ内：バックアップ CLI (`backup-gemini`)
+### 3. コンテナ内：バックアップ CLI (`backup-gemini`)
 
 コンテナ内のターミナルで `backup-gemini` コマンドが利用可能です。
 

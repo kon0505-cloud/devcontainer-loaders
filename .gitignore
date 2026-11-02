@@ -2,3 +2,6 @@ node_modules
 
 # Gemini and shell history persistent backup (synced via OneDrive)
 .gemini_backup/
+
+# Managed devcontainer.json work directory (local only)
+managed-configs/
