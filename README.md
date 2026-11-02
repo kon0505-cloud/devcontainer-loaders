@@ -28,6 +28,12 @@ devcontainer-scripts/
 │       └── release.yaml        # [CI/CD] GHCR 自動公開ワークフロー
 ├── docs/
 │   └── docker-cli-hints-troubleshooting.md # [備忘録] Docker CLI Hints 非表示化と Feature バージョン管理
+├── windows/                    # [Host] Windows エクスプローラー右クリック拡張（直通起動）
+│   ├── OpenAntigravityDevContainer.reg
+│   ├── OpenVSCodeDevContainer.reg
+│   ├── RemoveAntigravityDevContainer.reg
+│   ├── RemoveVSCodeDevContainer.reg
+│   └── README.md
 ├── src/
 │   └── my-gemini-tools/        # 全プロジェクト共通の自作 Dev Container Feature
 │       ├── devcontainer-feature.json
@@ -326,4 +332,5 @@ All essential configurations are healthy!
 
 ## 📚 ドキュメント・備忘録
 
+- [Windows エクスプローラー右クリック統合（Dev Container 直通起動）](windows/README.md)
 - [Docker CLI Hints 非表示化と Dev Container Feature バージョン管理の備忘録](docs/docker-cli-hints-troubleshooting.md)
