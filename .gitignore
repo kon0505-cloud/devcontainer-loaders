@@ -5,3 +5,4 @@ node_modules
 
 # Managed devcontainer.json work directory (local only)
 managed-configs/
+managed-configs*/

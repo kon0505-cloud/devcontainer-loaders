@@ -4,9 +4,10 @@
 # ==============================================================================
 param (
     [switch]$Pull,          # OneDrive 配下の devcontainer.json を managed-configs/ へ収集
-    [switch]$Push,          # managed-configs/ で編集されたファイルを元の場所へ書き戻す
-    [switch]$Diff,          # 手元の編集内容と元のファイルとの差分を一覧表示
+    [switch]$Push,          # managed-configs/ で編集されたファイルを元の場所へ書き戻す（実質的な変更のみ）
+    [switch]$Diff,          # 手元の編集内容と元のファイルとの差分を一覧表示（実質的な変更のみ）
     [switch]$Format,        # managed-configs/ 配下の全ファイルを正規化（コメント除去・キー整列・インデント統一）
+    [switch]$IncludeFormat, # Push/Diff 時に整形の有無（コメントやインデント）の差異も含めて対象とする
     [switch]$Rebuild,       # Push 完了後に続けて rebuild-devcontainers.ps1 を実行
     [string]$SearchRoot = "", # 探索ルートフォルダ（指定なしの場合は C:\OneDrive または $env:OneDrive）
     [switch]$Force          # Push 時の変更一覧確認をスキップして即座に書き戻す
@@ -137,6 +138,20 @@ function Format-DevContainerFile([string]$filePath) {
     }
 }
 
+# 正規化された JSON 文字列を取得する関数（セマンティック差分比較用）
+function Get-NormalizedJsonString([string]$filePath) {
+    if (-not (Test-Path $filePath)) { return "" }
+    try {
+        $raw = Get-Content -LiteralPath $filePath -Raw -Encoding UTF8
+        $clean = Remove-JsonComments $raw
+        $obj = $clean | ConvertFrom-Json
+        $formattedObj = Format-DevContainerObject $obj
+        return ($formattedObj | ConvertTo-Json -Depth 10).Trim()
+    } catch {
+        return ""
+    }
+}
+
 # ------------------------------------------------------------------------------
 # 1. PULL (OneDrive から手元に集約)
 # ------------------------------------------------------------------------------
@@ -260,6 +275,7 @@ try {
 
 # 差分のあるファイルを検出
 $changedList = @()
+$formatOnlyList = @()
 $missingList = @()
 
 foreach ($key in $mapping.Keys) {
@@ -275,13 +291,29 @@ foreach ($key in $mapping.Keys) {
     $managedHash = Get-FileSha256 $managedFile
     $sourceHash  = Get-FileSha256 $sourceFile
 
-    if ($managedHash -ne $sourceHash) {
-        $changedList += @{
-            "Key"         = $key
-            "ManagedFile" = $managedFile
-            "SourceFile"  = $sourceFile
-            "ManagedHash" = $managedHash
+    # テキストレベルで完全一致していれば差分なし
+    if ($managedHash -eq $sourceHash) {
+        continue
+    }
+
+    # -IncludeFormat が指定されていない場合、整形の有無（コメントやインデント）だけの差異かを判定
+    if (-not $IncludeFormat) {
+        $managedNormalized = Get-NormalizedJsonString $managedFile
+        $sourceNormalized  = Get-NormalizedJsonString $sourceFile
+
+        # 両方が正常に正規化でき、正規化後の内容が完全に一致する場合
+        if ($managedNormalized -and $sourceNormalized -and ($managedNormalized -eq $sourceNormalized)) {
+            $formatOnlyList += $key
+            continue # 整形の有無の違いだけなので「違い無し（スキップ）」！
         }
+    }
+
+    # 実質的な設定変更がある（または -IncludeFormat が指定されている）場合
+    $changedList += @{
+        "Key"         = $key
+        "ManagedFile" = $managedFile
+        "SourceFile"  = $sourceFile
+        "ManagedHash" = $managedHash
     }
 }
 
@@ -289,16 +321,22 @@ foreach ($key in $mapping.Keys) {
 # 3. DIFF (差分チェック)
 # ------------------------------------------------------------------------------
 if ($Diff) {
-    Write-Host "🔍 managed-configs/ と元のファイルとの差分をチェックしています..." -ForegroundColor Cyan
+    Write-Host "🔍 managed-configs/ と元のファイルとの実質的な差分をチェックしています..." -ForegroundColor Cyan
     Write-Host "------------------------------------------------------------------"
     
     if ($changedList.Count -eq 0) {
         Write-Host "✨ 変更はありません。手元の設定と元のファイルは完全に一致しています！" -ForegroundColor Green
     } else {
-        Write-Host "✏️ 変更を検知したファイル ($($changedList.Count) 件):" -ForegroundColor Yellow
+        Write-Host "✏️ 実質的な設定変更を検知したファイル ($($changedList.Count) 件):" -ForegroundColor Yellow
         foreach ($c in $changedList) {
             Write-Host "  ・$($c.Key) -> $($c.SourceFile)" -ForegroundColor Magenta
         }
+    }
+
+    if ($formatOnlyList.Count -gt 0 -and -not $IncludeFormat) {
+        Write-Host ""
+        Write-Host "ℹ️ 整形の差異のみ（コメント・インデント・キー整列）で実質変更なし: $($formatOnlyList.Count) 件" -ForegroundColor DarkGray
+        Write-Host "   （※設定値は同じため「違い無し」として判定しています。-IncludeFormat で含めることも可能）" -ForegroundColor DarkGray
     }
 
     if ($missingList.Count -gt 0) {
@@ -317,9 +355,13 @@ if ($Diff) {
 # ------------------------------------------------------------------------------
 if ($Push) {
     if ($changedList.Count -eq 0) {
-        Write-Host "✨ 書き戻す変更はありませんでした（全てのファイルが同期済みです）。" -ForegroundColor Green
+        Write-Host "✨ 書き戻す変更はありませんでした（実質的な設定内容が変更されたファイルはありません）。" -ForegroundColor Green
+        if ($formatOnlyList.Count -gt 0 -and -not $IncludeFormat) {
+            Write-Host "ℹ️ 整形の差異のみのファイルが $($formatOnlyList.Count) 件ありますが、実質的な設定変更がないためスキップしました。" -ForegroundColor DarkGray
+            Write-Host "   （整形結果も元のファイルへ反映したい場合は -IncludeFormat を付けて実行してください）" -ForegroundColor DarkGray
+        }
     } else {
-        Write-Host "📝 以下の $($changedList.Count) 件の変更を元のプロジェクトへ反映します:" -ForegroundColor Yellow
+        Write-Host "📝 以下の $($changedList.Count) 件の実質的な変更を元のプロジェクトへ反映します:" -ForegroundColor Yellow
         foreach ($c in $changedList) {
             Write-Host "  ・$($c.Key)" -ForegroundColor Cyan
         }
