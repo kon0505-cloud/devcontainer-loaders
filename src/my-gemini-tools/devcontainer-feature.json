@@ -1,11 +1,8 @@
 {
   "id": "my-gemini-tools",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "My Gemini Tools",
   "description": "Common Gemini data mounts, scripts, and lifecycle hooks",
-  "containerEnv": {
-    "DOCKER_CLI_HINTS": "false"
-  },
   "mounts": [
     {
       "source": "devcontainer-gemini-data-${devcontainerId}",

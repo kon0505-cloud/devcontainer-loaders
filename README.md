@@ -26,6 +26,8 @@ devcontainer-scripts/
 ├── .github/
 │   └── workflows/
 │       └── release.yaml        # [CI/CD] GHCR 自動公開ワークフロー
+├── docs/
+│   └── docker-cli-hints-troubleshooting.md # [備忘録] Docker CLI Hints 非表示化と Feature バージョン管理
 ├── src/
 │   └── my-gemini-tools/        # 全プロジェクト共通の自作 Dev Container Feature
 │       ├── devcontainer-feature.json
@@ -319,3 +321,9 @@ All essential configurations are healthy!
 }
 ```
 （バージョンを常に最新に保ちたい場合は `:1` または `:latest` を指定可能です）
+
+---
+
+## 📚 ドキュメント・備忘録
+
+- [Docker CLI Hints 非表示化と Dev Container Feature バージョン管理の備忘録](docs/docker-cli-hints-troubleshooting.md)
