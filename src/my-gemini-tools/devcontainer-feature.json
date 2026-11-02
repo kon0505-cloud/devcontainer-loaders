@@ -1,6 +1,6 @@
 {
   "id": "my-gemini-tools",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "name": "My Gemini Tools",
   "description": "Common Gemini data mounts, scripts, and lifecycle hooks",
   "mounts": [
@@ -35,6 +35,6 @@
   },
   "postCreateCommand": "if [ -f /var/devcontainer-scripts/setup-gemini.sh ]; then bash /var/devcontainer-scripts/setup-gemini.sh; elif [ -f .devcontainer/setup-gemini.sh ]; then bash .devcontainer/setup-gemini.sh; fi",
   "postStartCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --sync; elif [ -f /var/devcontainer-scripts/backup-gemini.sh ]; then bash /var/devcontainer-scripts/backup-gemini.sh --sync; fi",
-  "postAttachCommand": "backup-gemini --auto > /dev/null 2>&1 &"
+  "postAttachCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --auto; elif [ -f /var/devcontainer-scripts/backup-gemini.sh ]; then bash /var/devcontainer-scripts/backup-gemini.sh --auto; fi"
 }
 

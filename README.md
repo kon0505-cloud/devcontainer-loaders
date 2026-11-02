@@ -66,7 +66,7 @@ devcontainer-scripts/
 - **ライフサイクルフック**:
   - `postCreateCommand`: Gemini のセットアップスクリプト自動実行（`setup-gemini.sh`）
   - `postStartCommand`: `backup-gemini --sync` による起動時同期リストア
-  - `postAttachCommand`: `backup-gemini --auto` のバックグラウンド定期バックアップ
+  - `postAttachCommand`: `backup-gemini --auto` による自動バックアップ（前回から12時間経過時に実行）
 
 ### 2. GHCR によるクラウド自動配布 ＆ ローカルコピー対応
 - **GHCR（推奨・標準）**:
@@ -165,7 +165,7 @@ flowchart TD
   // 共通スクリプトと個別コマンドが合体して複雑
   "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force' && bash /var/devcontainer-scripts/setup-gemini.sh",
   "postStartCommand": "backup-gemini --sync",
-  "postAttachCommand": "backup-gemini --auto > /dev/null 2>&1 &"
+  "postAttachCommand": "backup-gemini --auto"
 }
 ```
 
