@@ -91,6 +91,7 @@ devcontainer-scripts/
   - `core.fileMode = false`: OS 間の実行権限差分による意図しない Git 変更検知を抑制。
   - `core.editor = vi`: リベースやコミットメッセージ入力時の対話型エディタを確保。
 - **Git post-commit フック**: `git commit` 成功時にバックグラウンドで自動バックアップを実行。
+- **パッケージ自動インストール**: ワークスペースに `package.json` が存在する場合、`node_modules` の所有権を調整した上で自動的に `npm install` を実行。
 
 ### 6. 堅牢なバックアップアーキテクチャ
 - **アトミック書き込み**: 一時ファイル（`.tmp.<pid>`）に書き出してからアトミックに移動（`mv`）することで、OneDrive の同期途中書き込み事故を防止。

@@ -100,8 +100,10 @@ run_health_check() {
     # 9. node_modules ownership
     if [ -d "$WORKSPACE_DIR/node_modules" ]; then
         echo " [OK] node_modules exists (owner: $(stat -c "%U:%G" "$WORKSPACE_DIR/node_modules"))"
+    elif [ -f "$WORKSPACE_DIR/package.json" ]; then
+        echo " [WARN] package.json exists but node_modules is missing"
     else
-        echo " [INFO] node_modules does not exist yet (run 'npm install' when needed)"
+        echo " [INFO] No package.json found in workspace"
     fi
 
     # 10. Git user configuration (user.name & user.email)
@@ -193,6 +195,20 @@ if [ -d "$WORKSPACE_DIR/node_modules" ]; then
         echo " [OK] Adjusted node_modules ownership to $(id -un):$(id -gn)"
     else
         echo " [WARN] Could not adjust node_modules ownership (continuing)"
+    fi
+fi
+
+# 2.7. package.json が存在する場合は npm install を実行
+if [ -f "$WORKSPACE_DIR/package.json" ]; then
+    if command -v npm >/dev/null 2>&1; then
+        echo "Running npm install in $WORKSPACE_DIR..."
+        if (cd "$WORKSPACE_DIR" && npm install); then
+            echo " [OK] npm install completed successfully"
+        else
+            echo " [WARN] npm install encountered errors (continuing)"
+        fi
+    else
+        echo " [INFO] package.json exists, but npm is not installed (skipping)"
     fi
 fi
 
