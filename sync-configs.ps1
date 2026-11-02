@@ -217,6 +217,7 @@ if ($Pull) {
             "managedFile"   = $destConfigFile
             "pulledHash"    = $hash
             "lastPulledAt"  = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            "lastPushedAt"  = ""
         }
         $pulledCount++
     }
@@ -266,7 +267,17 @@ $mapping = @{}
 try {
     $json = Get-Content -Path $mappingFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($json) {
-        $json.PSObject.Properties | ForEach-Object { $mapping[$_.Name] = $_.Value }
+        foreach ($p in $json.PSObject.Properties) {
+            $itemDict = [ordered]@{}
+            if ($p.Value -is [PSCustomObject]) {
+                foreach ($subProp in $p.Value.PSObject.Properties) {
+                    $itemDict[$subProp.Name] = $subProp.Value
+                }
+            } else {
+                $itemDict = $p.Value
+            }
+            $mapping[$p.Name] = $itemDict
+        }
     }
 } catch {
     Write-Host "❌ マッピングファイルの読み込みに失敗しました。" -ForegroundColor Red
@@ -376,10 +387,19 @@ if ($Push) {
         }
 
         $pushedCount = 0
+        $nowStr = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
         foreach ($c in $changedList) {
             Copy-Item -LiteralPath $c.ManagedFile -Destination $c.SourceFile -Force
-            $mapping[$c.Key].pulledHash = $c.ManagedHash
-            $mapping[$c.Key].lastPushedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            if ($mapping.ContainsKey($c.Key)) {
+                $targetItem = $mapping[$c.Key]
+                if ($targetItem -is [System.Collections.IDictionary]) {
+                    $targetItem["pulledHash"] = $c.ManagedHash
+                    $targetItem["lastPushedAt"] = $nowStr
+                } else {
+                    $targetItem | Add-Member -NotePropertyName "pulledHash" -NotePropertyValue $c.ManagedHash -Force
+                    $targetItem | Add-Member -NotePropertyName "lastPushedAt" -NotePropertyValue $nowStr -Force
+                }
+            }
             $pushedCount++
         }
 
