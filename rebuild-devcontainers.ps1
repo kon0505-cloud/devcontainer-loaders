@@ -166,7 +166,7 @@ foreach ($project in $targets) {
 
     # 古いコンテナを破棄して新しい設定で起動（リアルタイムにログを表示しつつ出力をキャプチャ）
     $upOutput = @()
-    devcontainer up --workspace-folder "$project" --remove-existing-container 2>&1 | Tee-Object -Variable upOutput
+    devcontainer up --workspace-folder "$project" --remove-existing-container | Tee-Object -Variable upOutput
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ リビルド成功: $project" -ForegroundColor Green
