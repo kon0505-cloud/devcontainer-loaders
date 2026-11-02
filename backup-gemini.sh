@@ -55,6 +55,14 @@ if [ "$1" = "--check" ]; then
     fi
 fi
 
+# 多重起動の防止（flock による排他制御）
+LOCK_FILE="/tmp/backup-gemini-$(id -u).lock"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    echo "[backup-gemini] Another backup or sync process is currently running. Skipping."
+    exit 0
+fi
+
 # --- リストア処理 ---
 restore_data() {
     if [ ! -f "$BACKUP_FILE" ]; then
@@ -171,12 +179,24 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 
+# 過去の中断やクラッシュで残った古い一時ファイル（*.tmp.*）を自動クリーンアップ
+rm -f "$BACKUP_DIR"/*.tmp.* 2>/dev/null || true
+
 echo "[backup-gemini] Creating backup archive to $BACKUP_FILE..."
 
 # 一時ファイルに書き出してからアトミック移動（OneDriveの書き込み途中同期を防止）
 TMP_BACKUP="${BACKUP_FILE}.tmp.$$"
 
+# 中断・エラー発生時に一時ファイルを確実に掃除する trap を設定
+cleanup() {
+    if [ -n "$TMP_BACKUP" ] && [ -f "$TMP_BACKUP" ]; then
+        rm -f "$TMP_BACKUP" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM HUP
+
 # バイナリ(agyなど)や一時ログ・ソケット・キャッシュは除外して超軽量化
+STATUS=0
 tar -czf "$TMP_BACKUP" \
     --exclude='bin' \
     --exclude='*/bin' \
@@ -188,17 +208,17 @@ tar -czf "$TMP_BACKUP" \
     --exclude='*/log' \
     --exclude='*.lock' \
     --exclude='*.sock' \
-    -C "$SRC_DIR" . || {
-        STATUS=$?
-        # tar の warning (file changed as we read it) は許容
-        if [ $STATUS -ne 1 ]; then
-            rm -f "$TMP_BACKUP"
-            echo "[backup-gemini] Backup failed with status $STATUS"
-            exit $STATUS
-        fi
-    }
+    -C "$SRC_DIR" . || STATUS=$?
+
+# tar の exit code 1 は「ファイル読み込み中に変更があった（warning）」なので許容
+if [ $STATUS -ne 0 ] && [ $STATUS -ne 1 ]; then
+    echo "[backup-gemini] Backup failed with status $STATUS"
+    exit $STATUS
+fi
 
 mv "$TMP_BACKUP" "$BACKUP_FILE"
+TMP_BACKUP="" # 正常完了したため trap による削除を解除
+trap - EXIT INT TERM HUP
 
 # リモート・ローカル両方のタイムスタンプを同一時刻で更新
 NOW=$(date +%s)

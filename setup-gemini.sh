@@ -367,25 +367,32 @@ if [ -d "$HOOK_DIR" ]; then
     if [ ! -f "$POST_COMMIT_HOOK" ]; then
         cat << 'EOF' > "$POST_COMMIT_HOOK"
 #!/usr/bin/env bash
-# コミット完了時にバックグラウンドでGeminiとシェル履歴をOneDriveにバックアップ
+# コミット完了時にGeminiとシェル履歴をOneDriveにバックアップ
 if command -v backup-gemini >/dev/null 2>&1; then
-    backup-gemini > /dev/null 2>&1 &
-fi
-EOF
-        chmod +x "$POST_COMMIT_HOOK" 2>/dev/null || true
-        hook_installed=true
-    elif ! grep -q "backup-gemini" "$POST_COMMIT_HOOK" 2>/dev/null; then
-        cat << 'EOF' >> "$POST_COMMIT_HOOK"
-
-# Automatic Gemini backup on commit
-if command -v backup-gemini >/dev/null 2>&1; then
-    backup-gemini > /dev/null 2>&1 &
+    backup-gemini
 fi
 EOF
         chmod +x "$POST_COMMIT_HOOK" 2>/dev/null || true
         hook_installed=true
     else
-        hook_installed=true
+        # 既存フックに非同期バックグラウンド実行（&）がある場合は安全な同期実行へ更新
+        if grep -qE "backup-gemini[[:space:]]*>[[:space:]]*/dev/null.*&" "$POST_COMMIT_HOOK" 2>/dev/null; then
+            sed -i -E 's|backup-gemini[[:space:]]*>[[:space:]]*/dev/null[[:space:]]*2>&1[[:space:]]*&|backup-gemini|g' "$POST_COMMIT_HOOK"
+            chmod +x "$POST_COMMIT_HOOK" 2>/dev/null || true
+            hook_installed=true
+        elif ! grep -q "backup-gemini" "$POST_COMMIT_HOOK" 2>/dev/null; then
+            cat << 'EOF' >> "$POST_COMMIT_HOOK"
+
+# Automatic Gemini backup on commit
+if command -v backup-gemini >/dev/null 2>&1; then
+    backup-gemini
+fi
+EOF
+            chmod +x "$POST_COMMIT_HOOK" 2>/dev/null || true
+            hook_installed=true
+        else
+            hook_installed=true
+        fi
     fi
 
     if [ "$hook_installed" = true ]; then
