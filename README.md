@@ -59,15 +59,11 @@ devcontainer-scripts/
   - `postStartCommand`: `backup-gemini --sync` による起動時同期リストア
   - `postAttachCommand`: `backup-gemini --auto` のバックグラウンド定期バックアップ
 
-### 2. Windows ジャンクションによるローカル一括同期
-`rebuild-devcontainers.ps1` を実行すると、OneDrive 配下の各 `.devcontainer` フォルダ内に `my-gemini-tools` への **ジャンクション（Junction）** を自動作成します。
-- サーバー（Docker レジストリ等）を常駐させる必要がありません。
-- `my-gemini-tools` の内容を 1 箇所修正すれば、全プロジェクトに即座に反映されます。
-- Windows の一般ユーザー権限で作成可能です（管理者権限不要）。
-
-> [!NOTE]
-> **コンテナ内（Linux）からジャンクションが見えない仕様について**  
-> Linux コンテナ内からは Windows のジャンクションリンク先が見失われるため空に見えますが、Feature の解析・インストールは **ホスト側（Windows 上の devcontainer CLI）** で行われるため、リビルドやマウントの注入には一切支障ありません。
+### 2. GHCR によるクラウド自動配布 ＆ ローカルコピー対応
+- **GHCR（推奨・標準）**:
+  GitHub Container Registry に公開されているため、各プロジェクトの `devcontainer.json` に URL を 1 行書くだけで、ジャンクションやローカル配置なしにどの PC からでも自動ダウンロード・適用されます。
+- **ローカル実体コピー (`-LocalFeature`)**:
+  手元で Feature を改修・試作したい場合、`rebuild-devcontainers.ps1 -LocalFeature` を実行することで、各プロジェクトの `.devcontainer/my-gemini-tools` へ実体コピーを安全に同期できます（※Windows のジャンクションは Docker ビルド時にリンクが見失われてエラーとなるため、実体コピー方式を採用しています）。
 
 ### 3. 差分検知 ＆ 省メモリ自動停止リビルド (`rebuild-devcontainers.ps1`)
 - **SHA256 ハッシュによる差分検知**:
@@ -179,7 +175,7 @@ flowchart TD
 ```
 > [!TIP]
 > - Feature 側の `postCreateCommand` や `postStartCommand` は、プロジェクト側の設定と競合せず、自動的に両方実行されます。
-> - 手元で Feature 自体を試作・改修する場合は、`"./my-gemini-tools": {}` と記述した上で `.\rebuild-devcontainers.ps1 -Junction` を実行することで、ローカルジャンクション連携も可能です。
+> - 手元で Feature 自体を試作・改修したい場合は、一時的に `"./my-gemini-tools": {}` と記述した上で `.\rebuild-devcontainers.ps1 -LocalFeature` を実行することで、実体コピーによるローカル検証が可能です。
 
 ### `.gitignore` の設定
 バックアップデータ（`.gemini_backup`）は OneDrive 等のクラウドストレージで同期するため、Git リポジトリにはコミットしないよう設定します：
@@ -194,7 +190,7 @@ flowchart TD
 
 ### 1. ホスト側：一括自動リビルド (`rebuild-devcontainers.ps1`)
 
-Windows の PowerShell から実行します。自動的に OneDrive 配下の `.devcontainer` を探索し、ジャンクション作成と差分ビルドを行います。
+Windows の PowerShell から実行します。自動的に OneDrive 配下の `.devcontainer` を探索し、差分ビルドを行います。
 
 #### 通常実行（変更があったプロジェクトのみリビルド）
 ```powershell
@@ -207,10 +203,10 @@ Windows の PowerShell から実行します。自動的に OneDrive 配下の `
 .\rebuild-devcontainers.ps1 -Force
 ```
 
-#### ローカルジャンクション作成・同期 (`-Junction`)
-GHCR ではなくローカルの `src/my-gemini-tools` を直接ジャンクションで各プロジェクトにリンクして開発・検証したい場合：
+#### ローカル Feature 実体コピー・同期 (`-LocalFeature` または `-CopyLocal`)
+GHCR ではなくローカルの `src/my-gemini-tools` を直接各プロジェクトに実体コピーして開発・検証したい場合：
 ```powershell
-.\rebuild-devcontainers.ps1 -Junction
+.\rebuild-devcontainers.ps1 -LocalFeature
 ```
 
 ---
@@ -262,17 +258,19 @@ All essential configurations are healthy!
 | **OneDrive の同期途中で不完全な tar.gz を解凍** | `tar -tzf` で整合性を事前検証。破損や同期中の場合はリストアを中断。 |
 | **バックアップ作成中のクラッシュ・書き込み途中同期** | 一時ファイル（`.tmp.<pid>`）にアーカイブを生成後、`mv` によるアトミック更新を実施。 |
 | **大量リビルドによるホスト PC のメモリ圧迫** | 各コンテナのビルド完了後、即座にコンテナを停止してメモリを解放。 |
-| **Windows ジャンクション作成権限** | 管理者権限不要のディレクトリジャンクションを使用し、一般ユーザー権限で完全自動化。 |
+| **Docker ビルド時のリンク破損** | Docker ビルド時にエラーとなる Windows ジャンクションを避け、クラウド経由（GHCR）または実体コピー方式を採用。 |
 
 ---
 
-## 🔮 今後の拡張（GitHub Container Registry への移行）
+## 📦 GitHub Container Registry (GHCR) の運用について
 
-ローカルでの検証が完了し、将来的に GitHub 上で Feature を一元管理したくなった場合は、本リポジトリまたは専用リポジトリから GitHub Container Registry (GHCR) へ公開することで、各 `devcontainer.json` を以下のように URL 指定へ切り替えることも可能です：
+本リポジトリの `src/my-gemini-tools` は、GitHub Actions によって GitHub Container Registry (GHCR) に自動公開されています。
+
+各プロジェクトの `devcontainer.json` に以下のように記述するだけで、ジャンクションや手元へのファイル配置不要で自動ダウンロード・適用されます：
 
 ```jsonc
 "features": {
   "ghcr.io/kon0505-cloud/devcontainer-scripts/my-gemini-tools:1": {}
 }
 ```
-（GHCR に移行すると、ジャンクションの配置すら不要になり、完全にクラウド経由で同期できるようになります）
+（バージョンを常に最新に保ちたい場合は `:1` または `:latest` を指定可能です）

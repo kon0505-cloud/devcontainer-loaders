@@ -2,9 +2,9 @@
 # devcontainer 差分検知 ＆ 自動停止（省メモリ）リビルドスクリプト
 # ==============================================================================
 param (
-    [switch]$Force,    # -Force を付けて実行すると差分に関係なく全件強制リビルド
-    [Alias("LinkJunction", "SyncJunction")]
-    [switch]$Junction  # -Junction を付けて実行するとローカル開発用に各プロジェクトへジャンクションを作成・同期
+    [switch]$Force,        # -Force を付けて実行すると差分に関係なく全件強制リビルド
+    [Alias("CopyLocal", "SyncLocal", "Junction")]
+    [switch]$LocalFeature  # -LocalFeature (または -CopyLocal) を付けるとローカルの my-gemini-tools を各プロジェクトへ実体コピー
 )
 
 # 1. devcontainer CLI のインストール確認
@@ -38,11 +38,11 @@ if (-not (Test-Path $sourceFeatureDir)) {
     $sourceFeatureDir = Join-Path $scriptDir "my-gemini-tools"
 }
 
-if ($Junction) {
+if ($LocalFeature) {
     if (Test-Path $sourceFeatureDir) {
-        Write-Host "📦 [-Junction] 共通 Feature を検出しました: $sourceFeatureDir" -ForegroundColor Green
+        Write-Host "📦 [-LocalFeature] 共通 Feature を検出しました: $sourceFeatureDir" -ForegroundColor Green
     } else {
-        Write-Host "⚠️ [-Junction] 共通 Feature (my-gemini-tools) が見つかりませんでした: $sourceFeatureDir" -ForegroundColor Yellow
+        Write-Host "⚠️ [-LocalFeature] 共通 Feature (my-gemini-tools) が見つかりませんでした: $sourceFeatureDir" -ForegroundColor Yellow
     }
 }
 
@@ -94,44 +94,32 @@ $skippedCount = 0
 foreach ($project in $targets) {
     $devcontainerDir = Join-Path $project ".devcontainer"
 
-    # 共通 Feature (my-gemini-tools) のジャンクション作成・同期（-Junction 指定時のみ実行）
-    if ($Junction -and $sourceFeatureDir -and (Test-Path $sourceFeatureDir)) {
-        $targetJunction = Join-Path $devcontainerDir "my-gemini-tools"
+    # 共通 Feature (my-gemini-tools) のローカルコピー同期（-LocalFeature 指定時のみ実行）
+    if ($LocalFeature -and $sourceFeatureDir -and (Test-Path $sourceFeatureDir)) {
+        $targetDir = Join-Path $devcontainerDir "my-gemini-tools"
         $normalizedSource = [System.IO.Path]::GetFullPath($sourceFeatureDir).TrimEnd('\', '/')
-        $normalizedTarget = [System.IO.Path]::GetFullPath($targetJunction).TrimEnd('\', '/')
+        $normalizedTarget = [System.IO.Path]::GetFullPath($targetDir).TrimEnd('\', '/')
 
-        # 自己ループを回避
+        # 自己ループを回避（ソース自身の中にはコピーしない）
         if ($normalizedSource -ne $normalizedTarget) {
-            $onWindows = ($env:OS -eq "Windows_NT") -or ($IsWindows -eq $true)
-            $linkType = if ($onWindows) { "Junction" } else { "SymbolicLink" }
-
-            $existingItem = Get-Item -LiteralPath $targetJunction -Force -ErrorAction SilentlyContinue
-            $needCreate = $true
-
-            if ($existingItem) {
-                # 既にジャンクション / リンクが存在する場合、ターゲットを照合
-                $currentTarget = if ($existingItem.Target) { $existingItem.Target } else { $existingItem.LinkTarget }
-                if ($currentTarget) {
-                    $normalizedCurrent = [System.IO.Path]::GetFullPath($currentTarget).TrimEnd('\', '/')
-                    if ($normalizedCurrent -eq $normalizedSource) {
-                        $needCreate = $false
+            try {
+                # 既存のジャンクション/リンクまたは古いフォルダをクリーンアップ
+                if (Test-Path -LiteralPath $targetDir) {
+                    $existingItem = Get-Item -LiteralPath $targetDir -Force -ErrorAction SilentlyContinue
+                    if ($existingItem.LinkType) {
+                        # ジャンクションやシンボリックリンクはリンク自体のみ安全に削除
+                        [System.IO.Directory]::Delete($existingItem.FullName, $false)
                     } else {
-                        # リンク先が異なる場合は削除して再作成
-                        Remove-Item -LiteralPath $targetJunction -Force -Recurse -ErrorAction SilentlyContinue
+                        Remove-Item -LiteralPath $targetDir -Force -Recurse -ErrorAction SilentlyContinue
                     }
-                } else {
-                    Write-Host "⚠️ $targetJunction に通常フォルダが既に存在するため、ジャンクション作成をスキップします" -ForegroundColor Yellow
-                    $needCreate = $false
                 }
-            }
 
-            if ($needCreate) {
-                try {
-                    New-Item -ItemType $linkType -Path $targetJunction -Target $sourceFeatureDir -Force -ErrorAction Stop | Out-Null
-                    Write-Host "🔗 共通 Feature のジャンクションを作成しました: $targetJunction" -ForegroundColor Cyan
-                } catch {
-                    Write-Host "⚠️ ジャンクション作成に失敗しました ($targetJunction): $_" -ForegroundColor Yellow
-                }
+                # 実体ディレクトリを作成して中身をコピー
+                New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction Stop | Out-Null
+                Copy-Item -Path "$sourceFeatureDir\*" -Destination $targetDir -Recurse -Force -ErrorAction Stop
+                Write-Host "📋 共通 Feature (my-gemini-tools) を実体コピーしました: $targetDir" -ForegroundColor Cyan
+            } catch {
+                Write-Host "⚠️ 共通 Feature のコピーに失敗しました ($targetDir): $_" -ForegroundColor Yellow
             }
         }
     }
