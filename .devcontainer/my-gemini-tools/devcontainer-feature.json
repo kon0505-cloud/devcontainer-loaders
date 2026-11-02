@@ -17,8 +17,7 @@
     {
       "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig",
       "target": "/var/host-gitconfig",
-      "type": "bind",
-      "readonly": true
+      "type": "bind"
     },
     {
       "source": "${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/devcontainer-scripts",
