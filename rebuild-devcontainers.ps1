@@ -151,27 +151,65 @@ foreach ($project in $targets) {
     Write-Host "🚀 変更を検知！リビルド＆再生成中: $project" -ForegroundColor Magenta
     Write-Host "========================================================" -ForegroundColor Magenta
 
-    # 古いコンテナを破棄して新しい設定で起動
-    devcontainer up --workspace-folder "$project" --remove-existing-container
+    # 古いコンテナを破棄して新しい設定で起動（リアルタイムにログを表示しつつ出力をキャプチャ）
+    $upOutput = @()
+    devcontainer up --workspace-folder "$project" --remove-existing-container 2>&1 | Tee-Object -Variable upOutput
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ リビルド成功: $project" -ForegroundColor Green
         
         Write-Host "💤 メモリ節約のため、起動したコンテナを安全に停止しています..." -ForegroundColor Yellow
         
-        # 表記ゆれ（大文字小文字、スラッシュ／バックスラッシュ）に対応して検索
-        $projectSlash = $project.Replace('\', '/')
-        $containerIds = docker ps -q --filter "label=devcontainer.local_folder=$project"
-        if (-not $containerIds) {
-            $containerIds = docker ps -q --filter "label=devcontainer.local_folder=$projectSlash"
-        }
-        if (-not $containerIds) {
-            $containerIds = docker ps -q --filter "label=devcontainer.local_folder=$($project.ToLower())"
+        # 1. devcontainer up の出力結果（JSON）から直接 containerId を抽出
+        $containerId = $null
+        foreach ($line in $upOutput) {
+            $lineStr = "$line"
+            if ($lineStr -match '"containerId"\s*:\s*"([^"]+)"') {
+                $containerId = $matches[1]
+                break
+            }
         }
 
-        if ($containerIds) {
-            docker stop $containerIds | Out-Null
-            Write-Host "🛌 コンテナを停止しました！メモリ解放完了です✨" -ForegroundColor Gray
+        # 2. フォールバック: Docker 上の全 devcontainer からパスが一致するものを PowerShell 側で柔軟照合
+        # （Docker CLI の --filter でのバックスラッシュ文字化けや大文字小文字の差異を完全に回避）
+        if (-not $containerId) {
+            $running = docker ps --filter "label=devcontainer.local_folder" --format "{{.ID}}|{{.Label `"devcontainer.local_folder`"}}" 2>$null
+            $normProj = $project.Replace('/', '\').TrimEnd('\')
+            foreach ($entry in $running) {
+                $parts = $entry -split '\|', 2
+                if ($parts.Count -eq 2) {
+                    $cId = $parts[0].Trim()
+                    $cPath = $parts[1].Trim().Replace('/', '\').TrimEnd('\')
+                    if ($cPath -eq $normProj -or $cPath.ToLower() -eq $normProj.ToLower()) {
+                        $containerId = $cId
+                        break
+                    }
+                }
+            }
+        }
+
+        # 3. フォールバック: devcontainer.config_file で照合
+        if (-not $containerId) {
+            $running = docker ps --filter "label=devcontainer.config_file" --format "{{.ID}}|{{.Label `"devcontainer.config_file`"}}" 2>$null
+            $normDevDir = $devcontainerDir.Replace('/', '\').TrimEnd('\')
+            foreach ($entry in $running) {
+                $parts = $entry -split '\|', 2
+                if ($parts.Count -eq 2) {
+                    $cId = $parts[0].Trim()
+                    $cPath = $parts[1].Trim().Replace('/', '\').TrimEnd('\')
+                    if ($cPath.StartsWith($normDevDir, [System.StringComparison]::OrdinalIgnoreCase) -or 
+                        $cPath.StartsWith($normProj, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        $containerId = $cId
+                        break
+                    }
+                }
+            }
+        }
+
+        if ($containerId) {
+            docker stop $containerId | Out-Null
+            $shortId = if ($containerId.Length -ge 12) { $containerId.Substring(0, 12) } else { $containerId }
+            Write-Host "🛌 コンテナ ($shortId) を停止しました！メモリ解放完了です✨" -ForegroundColor Gray
         } else {
             Write-Host "ℹ️ 停止対象のコンテナが見当たりませんでした（すでに停止している可能性があります）" -ForegroundColor DarkGray
         }
