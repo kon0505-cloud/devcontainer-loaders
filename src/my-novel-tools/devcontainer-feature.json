@@ -1,0 +1,23 @@
+{
+  "id": "my-novel-tools",
+  "version": "1.0.0",
+  "name": "My Novel Tools",
+  "description": "小説の執筆に役立つスクリプトをまとめたフォルダ",
+  "mounts": [
+    {
+      "source": "${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/Antigravity/novel_tools",
+      "target": "${containerWorkspaceFolder}/tools",
+      "type": "bind"
+    }
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "3w36zj6.textlint",
+        "ritwickdey.liveserver"
+      ]
+    }
+  },
+  "postCreateCommand": "if command -v git >/dev/null 2>&1; then git config --global --add safe.directory \"${containerWorkspaceFolder}/tools\"; fi"
+}
+
