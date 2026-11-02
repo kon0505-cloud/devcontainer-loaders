@@ -23,10 +23,14 @@ OneDrive 等のクラウドストレージ配下に散らばる複数の Dev Con
 
 ```text
 devcontainer-scripts/
+├── .github/
+│   └── workflows/
+│       └── release.yaml        # [CI/CD] GHCR 自動公開ワークフロー
+├── src/
+│   └── my-gemini-tools/        # 全プロジェクト共通の自作 Dev Container Feature
+│       ├── devcontainer-feature.json
+│       └── install.sh
 ├── rebuild-devcontainers.ps1   # [Host] 差分検知 ＆ 自動停止（省メモリ）一括リビルドスクリプト
-├── my-gemini-tools/            # 全プロジェクト共通の自作 Dev Container Feature
-│   ├── devcontainer-feature.json
-│   └── install.sh
 ├── backup-gemini.sh            # [Container] バックアップ/リストア/同期の統合CLI
 ├── setup-gemini.sh             # [Container] 初回作成時の環境自動構成スクリプト
 ├── .devcontainer/
@@ -261,7 +265,7 @@ All essential configurations are healthy!
 
 ```jsonc
 "features": {
-  "ghcr.io/<GitHubユーザー名>/devcontainer-features/my-gemini-tools:1": {}
+  "ghcr.io/kon0505-cloud/devcontainer-scripts/my-gemini-tools:1": {}
 }
 ```
 （GHCR に移行すると、ジャンクションの配置すら不要になり、完全にクラウド経由で同期できるようになります）

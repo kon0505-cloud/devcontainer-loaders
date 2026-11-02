@@ -31,7 +31,10 @@ if (-not (Get-Command devcontainer -ErrorAction SilentlyContinue)) {
 # 2. 探索先フォルダとハッシュキャッシュ、共通Featureの準備
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 if (-not $scriptDir) { $scriptDir = (Get-Location).Path }
-$sourceFeatureDir = Join-Path $scriptDir "my-gemini-tools"
+$sourceFeatureDir = Join-Path $scriptDir "src\my-gemini-tools"
+if (-not (Test-Path $sourceFeatureDir)) {
+    $sourceFeatureDir = Join-Path $scriptDir "my-gemini-tools"
+}
 
 if (Test-Path $sourceFeatureDir) {
     Write-Host "📦 共通 Feature を検出しました: $sourceFeatureDir" -ForegroundColor Green
