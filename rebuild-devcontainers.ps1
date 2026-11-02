@@ -4,7 +4,8 @@
 param (
     [switch]$Force,        # -Force を付けて実行すると差分に関係なく全件強制リビルド
     [Alias("CopyLocal", "SyncLocal", "Junction")]
-    [switch]$LocalFeature  # -LocalFeature (または -CopyLocal) を付けるとローカルの my-gemini-tools を各プロジェクトへ実体コピー
+    [switch]$LocalFeature, # -LocalFeature (または -CopyLocal) を付けるとローカルの my-gemini-tools を各プロジェクトへ実体コピー
+    [switch]$Prune         # -Prune を付けると差分の有無に関わらず最後にゴミイメージを一括掃除
 )
 
 # 1. devcontainer CLI のインストール確認
@@ -229,7 +230,20 @@ if ($buildCache.Count -gt 0) {
     "{}" | Set-Content -Path $cacheFile -Encoding UTF8
 }
 
-# 6. 完了レポート
+# 6. 未使用の古いゴミイメージ（<none>）の自動クリーンアップ
+if ($successCount -gt 0 -or $Prune) {
+    Write-Host ""
+    Write-Host "🧹 リビルドで発生した不要な古いゴミイメージ (<none>) をクリーンアップしています..." -ForegroundColor Yellow
+    $pruneOutput = docker image prune -f 2>$null
+    $reclaimed = $pruneOutput | Where-Object { $_ -match "Total reclaimed space" }
+    if ($reclaimed -and $reclaimed -notmatch ":\s*0B") {
+        Write-Host "✨ ゴミイメージを掃除しました！（$reclaimed）" -ForegroundColor Green
+    } else {
+        Write-Host "✨ 削除対象のゴミイメージはありませんでした（ディスクは清潔です）👍" -ForegroundColor Gray
+    }
+}
+
+# 7. 完了レポート
 Write-Host ""
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host "🎊 全ての処理が完了しました！PCもメモリもスッキリ軽快です〜！☕🍰" -ForegroundColor Cyan
