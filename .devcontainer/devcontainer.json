@@ -4,19 +4,13 @@
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
 	"features": {
+    	"./my-gemini-tools": {},
 		"ghcr.io/devcontainers/features/python:1": {
 			"version": "latest"
-		}
+		},
+    	"ghcr.io/devcontainers/features/powershell:2.0.3": {}
 	},
-	"mounts": [
-		"source=devcontainer-gemini-data-${devcontainerId},target=/var/gemini-data,type=volume",
-		"source=devcontainer-node_modules-${devcontainerId},target=${containerWorkspaceFolder}/node_modules,type=volume",
-		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig,target=/var/host-gitconfig,type=bind,readonly",
-		"source=${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/devcontainer-scripts,target=/var/devcontainer-scripts,type=bind"
-	],
-	"postCreateCommand": "if [ -f /var/devcontainer-scripts/setup-gemini.sh ]; then bash /var/devcontainer-scripts/setup-gemini.sh; else bash .devcontainer/setup-gemini.sh; fi",
-	"postStartCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --sync; elif [ -f /var/devcontainer-scripts/backup-gemini.sh ]; then bash /var/devcontainer-scripts/backup-gemini.sh --sync; fi",
-	"postAttachCommand": "backup-gemini --auto > /dev/null 2>&1 &"
+	"postCreateCommand": "pwsh -Command 'Install-Module -Name PSScriptAnalyzer, Pester -Force -Scope CurrentUser'"
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Configure tool-specific properties.

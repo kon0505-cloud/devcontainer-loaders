@@ -1,0 +1,41 @@
+{
+  "id": "my-gemini-tools",
+  "version": "1.0.0",
+  "name": "My Gemini Tools",
+  "description": "Common Gemini data mounts, scripts, and lifecycle hooks",
+  "mounts": [
+    {
+      "source": "devcontainer-gemini-data-${devcontainerId}",
+      "target": "/var/gemini-data",
+      "type": "volume"
+    },
+    {
+      "source": "devcontainer-node_modules-${devcontainerId}",
+      "target": "${containerWorkspaceFolder}/node_modules",
+      "type": "volume"
+    },
+    {
+      "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig",
+      "target": "/var/host-gitconfig",
+      "type": "bind",
+      "readonly": true
+    },
+    {
+      "source": "${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/devcontainer-scripts",
+      "target": "/var/devcontainer-scripts",
+      "type": "bind"
+    }
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "google.google-antigravity",
+        "natqe.reload"
+      ]
+    }
+  },
+  "postCreateCommand": "if [ -f /var/devcontainer-scripts/setup-gemini.sh ]; then bash /var/devcontainer-scripts/setup-gemini.sh; elif [ -f .devcontainer/setup-gemini.sh ]; then bash .devcontainer/setup-gemini.sh; fi",
+  "postStartCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --sync; elif [ -f /var/devcontainer-scripts/backup-gemini.sh ]; then bash /var/devcontainer-scripts/backup-gemini.sh --sync; fi",
+  "postAttachCommand": "backup-gemini --auto > /dev/null 2>&1 &"
+}
+

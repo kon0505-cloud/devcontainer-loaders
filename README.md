@@ -1,6 +1,6 @@
 # devcontainer-scripts
 
-OneDrive 等のクラウドストレージで共有されたワークスペースを複数の PC から Dev Container（VS Code / Antigravity IDE）として開く際に、**会話履歴・エージェントデータ・シェル履歴を安全かつシームレスに同期・永続化するユーティリティスクリプト群**です。
+OneDrive 等のクラウドストレージ配下に散らばる複数の Dev Container プロジェクトを一元管理し、**共通環境（エージェントデータ同期、シェル履歴、Git 設定）の標準化**と、**差分検知付き省メモリ一括自動リビルド**を実現するための包括的なツールセットです。
 
 ---
 
@@ -12,38 +12,86 @@ OneDrive 等のクラウドストレージで共有されたワークスペー�
 2. **クラウド同期特有の「先祖返り」や「競合・破損」リスク**
    - 複数 PC で作業していると、「古い PC 側で誤って古いバックアップをクラウドに上書きしてしまう」先祖返り事故が起きがちです。
    - OneDrive 等のクラウド同期の書き込み途中に tar アーカイブを展開しようとしてファイル破損が起きるリスクもあります。
-3. **開発環境のセットアップ工数**
-   - コンテナを作成するたびに Git の設定（`user.name`、`safe.directory`、ページャー停止対策）やコマンド履歴の引き継ぎを手動で行う必要があります。
-
-**本プロジェクトは、タイムスタンプによる分散新旧判定・逆流防止ガード・自動セットアップにより、これらの問題をすべて解決します。**
+3. **各プロジェクトでの設定重複と肥大化**
+   - プロジェクトごとに `devcontainer.json` へ共通のマウント設定や初期化スクリプトをコピー＆ペーストしていると、設定更新時のメンテナンスが破綻します。
+4. **大量プロジェクトの一括リビルドによる PC メモリ枯渇**
+   - 多数の Dev Container をまとめてリビルドすると、起動したコンテナがメモリを消費し続け、PC の動作が重くなります。
 
 ---
 
-## ✨ 主な機能
+## 📁 フォルダ・ファイル構成
 
-### 1. タイムスタンプ同期 & 逆流防止ガード
+```text
+devcontainer-scripts/
+├── rebuild-devcontainers.ps1   # [Host] 差分検知 ＆ 自動停止（省メモリ）一括リビルドスクリプト
+├── my-gemini-tools/            # 全プロジェクト共通の自作 Dev Container Feature
+│   ├── devcontainer-feature.json
+│   └── install.sh
+├── backup-gemini.sh            # [Container] バックアップ/リストア/同期の統合CLI
+├── setup-gemini.sh             # [Container] 初回作成時の環境自動構成スクリプト
+├── .devcontainer/
+│   ├── devcontainer.json       # Dev Container 設定定義
+│   └── devcontainer-lock.json
+├── .gemini_backup/             # [同期対象] バックアップ格納ディレクトリ
+│   ├── gemini-data-latest.tar.gz
+│   └── .last_backup_timestamp
+└── README.md
+```
+
+---
+
+## ✨ コア機能と仕組み
+
+### 1. 共通設定の Feature 化 (`my-gemini-tools`)
+各プロジェクトで重複していた共通設定を、独自の **Dev Container Feature** としてカプセル化しています。
+
+- **共通マウント (`mounts`)**:
+  - `devcontainer-gemini-data-${devcontainerId}`（Gemini データ永続化ボリューム）
+  - `devcontainer-node_modules-${devcontainerId}`（node_modules 用ボリューム）
+  - ホストの `~/.gitconfig`（リードオンリー）
+  - OneDrive 上の共通スクリプト（`OneDrive/Omochi/devcontainer-scripts`）
+- **ライフサイクルフック**:
+  - `postCreateCommand`: Gemini のセットアップスクリプト自動実行（`setup-gemini.sh`）
+  - `postStartCommand`: `backup-gemini --sync` による起動時同期リストア
+  - `postAttachCommand`: `backup-gemini --auto` のバックグラウンド定期バックアップ
+
+### 2. Windows ジャンクションによるローカル一括同期
+`rebuild-devcontainers.ps1` を実行すると、OneDrive 配下の各 `.devcontainer` フォルダ内に `my-gemini-tools` への **ジャンクション（Junction）** を自動作成します。
+- サーバー（Docker レジストリ等）を常駐させる必要がありません。
+- `my-gemini-tools` の内容を 1 箇所修正すれば、全プロジェクトに即座に反映されます。
+- Windows の一般ユーザー権限で作成可能です（管理者権限不要）。
+
+> [!NOTE]
+> **コンテナ内（Linux）からジャンクションが見えない仕様について**  
+> Linux コンテナ内からは Windows のジャンクションリンク先が見失われるため空に見えますが、Feature の解析・インストールは **ホスト側（Windows 上の devcontainer CLI）** で行われるため、リビルドやマウントの注入には一切支障ありません。
+
+### 3. 差分検知 ＆ 省メモリ自動停止リビルド (`rebuild-devcontainers.ps1`)
+- **SHA256 ハッシュによる差分検知**:
+  `.devcontainer` 配下のファイル（ジャンクション先の Feature 含む）からハッシュを算出し、変更があったプロジェクトのみをリビルドします。
+- **メモリ解放（自動停止）**:
+  リビルド完了後、起動したコンテナを即座に安全停止させ、大量のプロジェクトがあっても PC のメモリを圧迫しません。
+
+### 4. タイムスタンプ同期 & 逆流防止ガード
 - **分散タイムスタンプ比較**:
   OneDrive 側の `.gemini_backup/.last_backup_timestamp` とコンテナローカルの `/var/gemini-data/.last_backup_timestamp` を比較。
-- **自動同期（リストア）**:
-  別 PC で作成された新しいバックアップを検知した場合、コンテナ起動時に自動で最新データを展開。
+- **起動時自動同期（リストア）**:
+  別 PC で作成された新しいバックアップを検知した場合、コンテナ起動時（IDE接続前）に自動で最新データを展開。
 - **誤上書きの完全防止**:
   別 PC のバックアップの方が新しい場合、古いローカルデータによる上書きバックアップを自動でブロックします（`--force` で強制可能）。
 
-### 2. エージェントデータ & シェル履歴の永続化
-- `~/.gemini`（会話履歴、brain、要約データベース等）を `/var/gemini-data` へマウント・シンボリックリンク化。
-- Bash（`~/.bash_history`）および Zsh（`~/.zsh_history`）のコマンド履歴を永続化し、コンテナを破棄・再作成しても履歴（`Ctrl+R`）を維持。
-
-### 3. Git & 開発環境の自動最適化
-- **ホストの Git 設定自動同期**: ホストの `~/.gitconfig` から `user.name` と `user.email` を読み取り、コンテナ内に自動適用。
+### 5. エージェントデータ & シェル履歴 & Git の自動最適化
+- **会話履歴とシェル履歴の永続化**:
+  `~/.gemini`（会話履歴、brain、要約 DB 等）および Bash（`~/.bash_history`）・Zsh（`~/.zsh_history`）をボリュームへマウント。コンテナを破棄・再作成しても履歴（`Ctrl+R`）が残ります。
+- **ホストの Git 設定自動同期**:
+  ホストの `~/.gitconfig` から `user.name` と `user.email` を読み取り、コンテナ内に自動適用。
 - **Git トラブル防止策の自動設定**:
   - `safe.directory`: Docker マウント時の所有権不一致（exit code 128）を防止。
   - `core.pager = cat`: コミットログ表示時のターミナルハングを防止。
-  - `core.fileMode = false`: Windows/WSL/Linux 間の実行権限差分による意図しない Git 変更検知を抑制。
+  - `core.fileMode = false`: OS 間の実行権限差分による意図しない Git 変更検知を抑制。
   - `core.editor = vi`: リベースやコミットメッセージ入力時の対話型エディタを確保。
 - **Git post-commit フック**: `git commit` 成功時にバックグラウンドで自動バックアップを実行。
-- **`node_modules` 所有権調整**: Named Volume マウント時に root 所有となってしまう問題を自動解決。
 
-### 4. 堅牢なバックアップアーキテクチャ
+### 6. 堅牢なバックアップアーキテクチャ
 - **アトミック書き込み**: 一時ファイル（`.tmp.<pid>`）に書き出してからアトミックに移動（`mv`）することで、OneDrive の同期途中書き込み事故を防止。
 - **リストア前の整合性テスト**: `tar -tzf` でアーカイブ破損や同期中状態を検知し、安全が確認された場合のみ展開。
 - **超軽量アーカイブ**: 実行バイナリ、キャッシュ、ソケット、一時ログなどを自動除外。
@@ -54,6 +102,15 @@ OneDrive 等のクラウドストレージで共有されたワークスペー�
 
 ```mermaid
 flowchart TD
+    subgraph Host["ホスト環境（Windows / PowerShell）"]
+        H1["rebuild-devcontainers.ps1 実行"] --> H2["OneDrive 配下の全プロジェクト探索"]
+        H2 --> H3["ジャンクション（my-gemini-tools）自動リンク"]
+        H3 --> H4{"SHA256 差分検知<br>(変更あり?)"}
+        H4 -- "Yes" --> H5["devcontainer build & up"]
+        H5 --> H6["コンテナ即時停止（省メモリ解放）"]
+        H4 -- "No" --> H7["リビルドスキップ"]
+    end
+
     subgraph PC_A["PC A（作業終了時）"]
         A1["コミット / 終了"] --> A2["backup-gemini 実行"]
         A2 --> A3["tar.gz 作成 & タイムスタンプ更新<br>(Local & Remote = T1)"]
@@ -74,27 +131,80 @@ flowchart TD
 
 ---
 
-## 📁 ファイル構成
+## 🛠️ 各プロジェクトでの書き方（移行手順）
 
-```text
-devcontainer-scripts/
-├── backup-gemini.sh          # バックアップ/リストア/同期の統合CLI
-├── setup-gemini.sh           # コンテナ初回作成時の自動構成スクリプト
-├── rebuild_conversations.py  # （保守用）会話履歴インデックス再構築スクリプト
-├── .devcontainer/
-│   ├── devcontainer.json     # Dev Container 設定定義
-│   └── devcontainer-lock.json
-├── .gemini_backup/           # [同期対象] バックアップ格納ディレクトリ
-│   ├── gemini-data-latest.tar.gz
-│   └── .last_backup_timestamp
-└── README.md
+各プロジェクトの `devcontainer.json` では、共通の `mounts` や `backup-gemini` 関連のコマンドを削除し、`features` に `"./my-gemini-tools": {}` を追加するだけで完了します。
+
+### 移行前と移行後の比較
+
+#### ❌ 移行前（共通項目が混ざって肥大化している状態）
+```jsonc
+{
+  "name": "my-powershell-app",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/powershell:2.0.3": {}
+  },
+  // 共通マウントが毎回書かれており重複している
+  "mounts": [
+    "source=devcontainer-gemini-data-${devcontainerId},target=/var/gemini-data,type=volume",
+    "source=devcontainer-node_modules-${devcontainerId},target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig,target=/var/host-gitconfig,type=bind,readonly",
+    "source=${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/devcontainer-scripts,target=/var/devcontainer-scripts,type=bind"
+  ],
+  // 共通スクリプトと個別コマンドが合体して複雑
+  "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force' && bash /var/devcontainer-scripts/setup-gemini.sh",
+  "postStartCommand": "backup-gemini --sync",
+  "postAttachCommand": "backup-gemini --auto > /dev/null 2>&1 &"
+}
+```
+
+#### ✅ 移行後（プロジェクト固有の設定だけにスッキリ！）
+```jsonc
+{
+  "name": "my-powershell-app",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/powershell:2.0.3": {},
+    // ★ 自作 Feature を追加（ジャンクション経由）
+    "./my-gemini-tools": {}
+  },
+  // ★ プロジェクト固有のコマンドだけをシンプルに記述可能
+  "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force'"
+}
+```
+> [!TIP]
+> Feature 側の `postCreateCommand` や `postStartCommand` は、プロジェクト側の設定と競合せず、自動的に両方実行されます。
+
+### `.gitignore` の設定
+バックアップデータ（`.gemini_backup`）は OneDrive 等のクラウドストレージで同期するため、Git リポジトリにはコミットしないよう設定します：
+
+```gitignore
+.gemini_backup/
 ```
 
 ---
 
-## 🚀 使い方
+## 💻 使い方・コマンドリファレンス
 
-### 1. CLI コマンド (`backup-gemini`)
+### 1. ホスト側：一括自動リビルド (`rebuild-devcontainers.ps1`)
+
+Windows の PowerShell から実行します。自動的に OneDrive 配下の `.devcontainer` を探索し、ジャンクション作成と差分ビルドを行います。
+
+#### 通常実行（変更があったプロジェクトのみリビルド）
+```powershell
+.\rebuild-devcontainers.ps1
+```
+
+#### 全件強制リビルド (`-Force`)
+キャッシュを無視して、全プロジェクトを一括リビルドしたい場合：
+```powershell
+.\rebuild-devcontainers.ps1 -Force
+```
+
+---
+
+### 2. コンテナ内：バックアップ CLI (`backup-gemini`)
 
 コンテナ内のターミナルで `backup-gemini` コマンドが利用可能です。
 
@@ -107,10 +217,7 @@ devcontainer-scripts/
 | `backup-gemini --force` | リモートの新旧判定を無視し、ローカルデータで強制バックアップ |
 | `backup-gemini --check` | 環境の健全性チェック（自己診断）を実行 |
 
-### 2. 環境の自己診断（ヘルスチェック）
-
-開発環境や同期状態が正常であるかをワンアクションで確認できます。
-
+#### 環境の自己診断（ヘルスチェック）
 ```bash
 backup-gemini --check
 ```
@@ -135,51 +242,6 @@ All essential configurations are healthy!
 
 ---
 
-## 🛠️ 他のプロジェクト（Dev Container）への組み込み手順
-
-他の Dev Container プロジェクトでこの仕組みを利用する場合、以下の手順で簡単に導入できます。
-
-### 1. `devcontainer.json` の設定
-
-プロジェクトの `.devcontainer/devcontainer.json` に以下の設定を追加します：
-
-```jsonc
-{
-  "name": "my-project",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
-  
-  "mounts": [
-    // 1. 各PCローカルで独立したNamed Volumeを用意
-    "source=devcontainer-gemini-data-${devcontainerId},target=/var/gemini-data,type=volume",
-    "source=devcontainer-node_modules-${devcontainerId},target=${containerWorkspaceFolder}/node_modules,type=volume",
-    // 2. ホストのGit設定をReadOnlyでマウント
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig,target=/var/host-gitconfig,type=bind,readonly",
-    // 3. 共通スクリプト（本リポジトリ）をマウント
-    "source=${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/devcontainer-scripts,target=/var/devcontainer-scripts,type=bind"
-  ],
-
-  // コンテナ初回作成時に環境を初期構築
-  "postCreateCommand": "if [ -f /var/devcontainer-scripts/setup-gemini.sh ]; then bash /var/devcontainer-scripts/setup-gemini.sh; fi",
-
-  // コンテナ起動直後（IDE接続前）に、別PCの最新バックアップがあれば同期リストア
-  "postStartCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --sync; elif [ -f /var/devcontainer-scripts/backup-gemini.sh ]; then bash /var/devcontainer-scripts/backup-gemini.sh --sync; fi",
-
-  // エディタアタッチ時にバックグラウンドで定期バックアップ判定
-  "postAttachCommand": "backup-gemini --auto > /dev/null 2>&1 &"
-}
-```
-
-### 2. `.gitignore` の設定
-
-バックアップデータ（`.gemini_backup`）は OneDrive 等のクラウドストレージで同期するため、Git リポジトリにはコミットしないよう設定します：
-
-```gitignore
-# .gitignore
-.gemini_backup/
-```
-
----
-
 ## 🔒 セーフティ機能一覧
 
 | 発生しうる事故 | 本システムの対策 |
@@ -188,4 +250,18 @@ All essential configurations are healthy!
 | **PC起動時にDBやプロセスと競合してリストア失敗** | IDE がセッションを開始する前の `postStartCommand` フェーズで `--sync` を同期実行。 |
 | **OneDrive の同期途中で不完全な tar.gz を解凍** | `tar -tzf` で整合性を事前検証。破損や同期中の場合はリストアを中断。 |
 | **バックアップ作成中のクラッシュ・書き込み途中同期** | 一時ファイル（`.tmp.<pid>`）にアーカイブを生成後、`mv` によるアトミック更新を実施。 |
+| **大量リビルドによるホスト PC のメモリ圧迫** | 各コンテナのビルド完了後、即座にコンテナを停止してメモリを解放。 |
+| **Windows ジャンクション作成権限** | 管理者権限不要のディレクトリジャンクションを使用し、一般ユーザー権限で完全自動化。 |
 
+---
+
+## 🔮 今後の拡張（GitHub Container Registry への移行）
+
+ローカルでの検証が完了し、将来的に GitHub 上で Feature を一元管理したくなった場合は、本リポジトリまたは専用リポジトリから GitHub Container Registry (GHCR) へ公開することで、各 `devcontainer.json` を以下のように URL 指定へ切り替えることも可能です：
+
+```jsonc
+"features": {
+  "ghcr.io/<GitHubユーザー名>/devcontainer-features/my-gemini-tools:1": {}
+}
+```
+（GHCR に移行すると、ジャンクションの配置すら不要になり、完全にクラウド経由で同期できるようになります）
