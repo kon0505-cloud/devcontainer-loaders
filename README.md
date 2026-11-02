@@ -201,19 +201,26 @@ OneDrive 配下に散らばる各プロジェクトの `devcontainer.json` を�
 > [!TIP]
 > コピー後、VS Code の「フォルダ内を検索（`Ctrl+Shift+F`）」で `managed-configs/` 配下を一括検索し、共通 Feature の URL や設定を一瞬で全プロジェクト横断置換できます。
 
-#### B. 編集差分の確認 (`-Diff`)
+#### B. 一括正規化・フォーマット (`-Format`)
+手元の全 `devcontainer.json` を一括で整形します（テンプレートコメントや空行の完全除去、Dev Container 標準スキーマ順へのキー並べ替え、スペース 2 へのインデント統一）。
+```powershell
+.\sync-configs.ps1 -Format
+```
+※集約と同時に自動整形したい場合は、`.\sync-configs.ps1 -Pull -Format` と同時に指定することも可能です。
+
+#### C. 編集差分の確認 (`-Diff`)
 手元の編集内容と、元の OneDrive 上のファイルとの間に差分があるプロジェクトを一覧表示します。
 ```powershell
 .\sync-configs.ps1 -Diff
 ```
 
-#### C. 元の場所へ書き戻し (`-Push`)
+#### D. 元の場所へ書き戻し (`-Push`)
 変更があったファイルだけを元のプロジェクトへ安全に上書き反映します。
 ```powershell
 .\sync-configs.ps1 -Push
 ```
 
-#### D. 書き戻し後にそのまま一括リビルド (`-Push -Rebuild`)
+#### E. 書き戻し後にそのまま一括リビルド (`-Push -Rebuild`)
 書き戻しと同時に、差分検知付き一括リビルドまで一気通貫で自動実行します。
 ```powershell
 .\sync-configs.ps1 -Push -Rebuild

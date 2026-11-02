@@ -1,11 +1,12 @@
 # ==============================================================================
 # sync-configs.ps1
-# OneDrive 配下の devcontainer.json を集約・一括編集・逆反映（Pull / Push）スクリプト
+# OneDrive 配下の devcontainer.json を集約・一括編集・正規化・逆反映（Pull / Push / Format）スクリプト
 # ==============================================================================
 param (
     [switch]$Pull,          # OneDrive 配下の devcontainer.json を managed-configs/ へ収集
     [switch]$Push,          # managed-configs/ で編集されたファイルを元の場所へ書き戻す
     [switch]$Diff,          # 手元の編集内容と元のファイルとの差分を一覧表示
+    [switch]$Format,        # managed-configs/ 配下の全ファイルを正規化（コメント除去・キー整列・インデント統一）
     [switch]$Rebuild,       # Push 完了後に続けて rebuild-devcontainers.ps1 を実行
     [string]$SearchRoot = "", # 探索ルートフォルダ（指定なしの場合は C:\OneDrive または $env:OneDrive）
     [switch]$Force          # Push 時の変更一覧確認をスキップして即座に書き戻す
@@ -27,12 +28,14 @@ $mappingFile = Join-Path $managedDir "_mapping.json"
 $normalizedScriptDir = [System.IO.Path]::GetFullPath($scriptDir).TrimEnd('\', '/')
 
 # 引数なしの場合はヘルプを表示
-if (-not $Pull -and -not $Push -and -not $Diff) {
+if (-not $Pull -and -not $Push -and -not $Diff -and -not $Format) {
     Write-Host "==================================================================" -ForegroundColor Cyan
-    Write-Host " 🛠️ devcontainer.json 一括同期ツール (sync-configs.ps1)" -ForegroundColor Cyan
+    Write-Host " 🛠️ devcontainer.json 一括同期・正規化ツール (sync-configs.ps1)" -ForegroundColor Cyan
     Write-Host "==================================================================" -ForegroundColor Cyan
     Write-Host "使い方:"
     Write-Host "  .\sync-configs.ps1 -Pull        OneDrive から全 devcontainer.json を集約コピー"
+    Write-Host "  .\sync-configs.ps1 -Format      全ファイルを正規化（コメント除去・キー整列・インデント統一）"
+    Write-Host "  .\sync-configs.ps1 -Pull -Format 集約と同時に全ファイルを自動正規化"
     Write-Host "  .\sync-configs.ps1 -Diff        手元での編集差分をチェック"
     Write-Host "  .\sync-configs.ps1 -Push        手元の変更を元の場所へ一括書き戻し"
     Write-Host "  .\sync-configs.ps1 -Push -Rebuild  書き戻し後にそのまま一括リビルドを実行"
@@ -42,7 +45,7 @@ if (-not $Pull -and -not $Push -and -not $Diff) {
     exit 0
 }
 
-if (-not (Test-Path $SearchRoot)) {
+if ($Pull -and -not (Test-Path $SearchRoot)) {
     Write-Host "❌ 探索先フォルダ ($SearchRoot) が見つかりませんでした💦" -ForegroundColor Red
     exit 1
 }
@@ -51,6 +54,87 @@ if (-not (Test-Path $SearchRoot)) {
 function Get-FileSha256([string]$filePath) {
     if (-not (Test-Path $filePath)) { return "" }
     return (Get-FileHash -Path $filePath -Algorithm SHA256).Hash
+}
+
+# JSONC からコメント・末尾カンマを除去する関数
+function Remove-JsonComments([string]$jsonContent) {
+    $text = [System.Text.RegularExpressions.Regex]::Replace($jsonContent, "/\*[\s\S]*?\*/", "")
+    $pattern = '("(?:\\.|[^"\\])*")|//.*$'
+    $text = [System.Text.RegularExpressions.Regex]::Replace($text, $pattern, {
+        param($m)
+        if ($m.Groups[1].Success) { return $m.Groups[1].Value } else { return "" }
+    }, [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $text = [System.Text.RegularExpressions.Regex]::Replace($text, ',\s*([}\]])', '$1')
+    return $text.Trim()
+}
+
+# キーの順序を標準仕様に沿って整列する再帰関数
+function Format-DevContainerObject($val) {
+    if ($null -eq $val) { return $null }
+    
+    if ($val -is [System.Collections.IList]) {
+        $list = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $val) {
+            $formattedItem = Format-DevContainerObject $item
+            $null = $list.Add($formattedItem)
+        }
+        return ,$list.ToArray()
+    }
+
+    if ($val -is [PSCustomObject] -or $val -is [System.Collections.IDictionary]) {
+        # 標準的な理想キー順序リスト
+        $priorityKeys = @(
+            "name",
+            "image", "dockerFile", "build",
+            "features", "overrideFeatureInstallOrder",
+            "customizations",
+            "mounts", "workspaceMount", "workspaceFolder",
+            "forwardPorts", "portsAttributes", "otherPortsAttributes",
+            "appPort", "containerEnv", "remoteEnv", "containerUser", "remoteUser",
+            "updateRemoteUserUID",
+            "initializeCommand", "onCreateCommand", "updateContentCommand",
+            "postCreateCommand", "postStartCommand", "postAttachCommand",
+            "waitFor", "userEnvProbe", "hostRequirements", "privileged", "capAdd", "securityOpt",
+            "runArgs", "shutdownAction"
+        )
+        $ordered = [ordered]@{}
+        $propNames = if ($val -is [PSCustomObject]) { $val.PSObject.Properties.Name } else { $val.Keys }
+
+        # 優先順位リストに含まれるキーを配置
+        foreach ($k in $priorityKeys) {
+            if ($propNames -contains $k) {
+                if ($val -is [PSCustomObject]) { $sub = $val.$k } else { $sub = $val[$k] }
+                $ordered[$k] = Format-DevContainerObject $sub
+            }
+        }
+
+        # 残りのキーをアルファベット順で末尾に配置
+        $remainingKeys = $propNames | Where-Object { $priorityKeys -notcontains $_ } | Sort-Object
+        foreach ($k in $remainingKeys) {
+            if ($val -is [PSCustomObject]) { $sub = $val.$k } else { $sub = $val[$k] }
+            $ordered[$k] = Format-DevContainerObject $sub
+        }
+        return $ordered
+    }
+
+    return $val
+}
+
+# 単一ファイルのフォーマット実行関数
+function Format-DevContainerFile([string]$filePath) {
+    if (-not (Test-Path $filePath)) { return $false }
+    try {
+        $raw = Get-Content -LiteralPath $filePath -Raw -Encoding UTF8
+        $clean = Remove-JsonComments $raw
+        $obj = $clean | ConvertFrom-Json
+        $formattedObj = Format-DevContainerObject $obj
+        $formattedJson = $formattedObj | ConvertTo-Json -Depth 10
+        Set-Content -LiteralPath $filePath -Value ($formattedJson + "`n") -Encoding UTF8
+        return $true
+    } catch {
+        Write-Host "⚠️ フォーマット失敗 ($filePath): $_" -ForegroundColor Yellow
+        return $false
+    }
 }
 
 # ------------------------------------------------------------------------------
@@ -104,7 +188,13 @@ if ($Pull) {
         }
 
         Copy-Item -LiteralPath $srcConfigFile -Destination $destConfigFile -Force
-        $hash = Get-FileSha256 $srcConfigFile
+        
+        # -Format が同時に指定されている場合は即時フォーマット
+        if ($Format) {
+            $null = Format-DevContainerFile $destConfigFile
+        }
+
+        $hash = Get-FileSha256 $destConfigFile
 
         $mapping[$relPath] = @{
             "projectFolder" = $project
@@ -119,7 +209,32 @@ if ($Pull) {
     $mapping | ConvertTo-Json -Depth 5 | Set-Content -Path $mappingFile -Encoding UTF8
 
     Write-Host "🎉 $pulledCount 件の devcontainer.json を managed-configs/ 配下にコピーしました！" -ForegroundColor Green
+    if ($Format) {
+        Write-Host "✨ 集約と同時に全ファイルの正規化（コメント除去・キー整列・インデント統一）を完了しました！" -ForegroundColor Green
+    }
     Write-Host "💡 VS Code 上で managed-configs/ 内のファイルを自由に一括検索・置換・編集してください。" -ForegroundColor Yellow
+    exit 0
+}
+
+# ------------------------------------------------------------------------------
+# 2. FORMAT (単体実行: managed-configs/ 内の全ファイルを正規化・整形)
+# ------------------------------------------------------------------------------
+if ($Format) {
+    Write-Host "🧹 managed-configs/ 配下の devcontainer.json を正規化・整形しています...✨" -ForegroundColor Cyan
+    $configFiles = Get-ChildItem -Path $managedDir -Filter "devcontainer.json" -Recurse -File -ErrorAction SilentlyContinue
+    
+    if (-not $configFiles -or $configFiles.Count -eq 0) {
+        Write-Host "🎈 フォーマット対象のファイルが見つかりませんでした。" -ForegroundColor Yellow
+        exit 0
+    }
+
+    $successCount = 0
+    foreach ($f in $configFiles) {
+        if (Format-DevContainerFile $f.FullName) {
+            $successCount++
+        }
+    }
+    Write-Host "✨ $successCount 件のファイルを正規化しました！（コメント除去、キー整列、インデント統一完了）" -ForegroundColor Green
     exit 0
 }
 
@@ -171,7 +286,7 @@ foreach ($key in $mapping.Keys) {
 }
 
 # ------------------------------------------------------------------------------
-# 2. DIFF (差分チェック)
+# 3. DIFF (差分チェック)
 # ------------------------------------------------------------------------------
 if ($Diff) {
     Write-Host "🔍 managed-configs/ と元のファイルとの差分をチェックしています..." -ForegroundColor Cyan
@@ -198,7 +313,7 @@ if ($Diff) {
 }
 
 # ------------------------------------------------------------------------------
-# 3. PUSH (手元の変更を元の場所へ書き戻す)
+# 4. PUSH (手元の変更を元の場所へ書き戻す)
 # ------------------------------------------------------------------------------
 if ($Push) {
     if ($changedList.Count -eq 0) {
@@ -220,9 +335,7 @@ if ($Push) {
 
         $pushedCount = 0
         foreach ($c in $changedList) {
-            # 安全のため上書きコピー
             Copy-Item -LiteralPath $c.ManagedFile -Destination $c.SourceFile -Force
-            # マッピングのハッシュを最新化
             $mapping[$c.Key].pulledHash = $c.ManagedHash
             $mapping[$c.Key].lastPushedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
             $pushedCount++
