@@ -1,6 +1,6 @@
 {
   "id": "rp-chat-ui",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "RP-Chat-UI Symlink Installer",
   "description": "Mounts host RP-Chat-UI directory and links it directly to VS Code extensions.",
   "mounts": [
@@ -10,5 +10,5 @@
       "type": "bind"
     }
   ],
-  "postStartCommand": "mkdir -p ~/.vscode-server/extensions && ln -sfn /var/rp-chat-ui ~/.vscode-server/extensions/yun-komochi.rp-chat-ui-0.1.0"
+  "postStartCommand": "mkdir -p ~/.vscode-server/extensions && ln -sfn /var/rp-chat-ui ~/.vscode-server/extensions/yun-komochi.rp-chat-ui-0.1.0 && bash /usr/local/share/rp-chat-ui/link-agents.sh"
 }
