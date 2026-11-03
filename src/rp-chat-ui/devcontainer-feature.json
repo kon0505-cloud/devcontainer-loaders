@@ -1,0 +1,26 @@
+{
+  "id": "rp-chat-ui",
+  "version": "1.0.0",
+  "name": "RP-Chat-UI Symlink Installer",
+  "description": "Mounts host RP-Chat-UI directory and links it directly to VS Code extensions.",
+  "options": {
+    "hostPath": {
+      "type": "string",
+      "default": "${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/Antigravity/rp-chat-ui",
+      "description": "Host path to rp-chat-ui directory"
+    },
+    "targetPath": {
+      "type": "string",
+      "default": "/var/rp-chat-ui",
+      "description": "Container target path"
+    }
+  },
+  "mounts": [
+    {
+      "source": "${options:hostPath}",
+      "target": "${options:targetPath}",
+      "type": "bind"
+    }
+  ],
+  "postStartCommand": "mkdir -p ~/.vscode-server/extensions && ln -sfn /var/rp-chat-ui ~/.vscode-server/extensions/yun-komochi.rp-chat-ui-0.1.0"
+}
