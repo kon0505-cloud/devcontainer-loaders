@@ -8,7 +8,8 @@
     },
     "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools:1": {},
     "ghcr.io/kon0505-cloud/devcontainer-loaders/novel-tools:1": {},
-    "ghcr.io/kon0505-cloud/devcontainer-loaders/rp-chat-ui:1": {}
+    "ghcr.io/kon0505-cloud/devcontainer-loaders/rp-chat-ui:1": {},
+    "ghcr.io/kon0505-cloud/devcontainer-loaders/mysearch-jumper:1": {}
   },
   "customizations": {
     "vscode": {

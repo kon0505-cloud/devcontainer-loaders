@@ -39,7 +39,10 @@ devcontainer-loaders/
 │   ├── rp-chat-agent/
 │   │   ├── devcontainer-feature.json
 │   │   └── install.sh
-│   └── rp-chat-ui/
+│   ├── rp-chat-ui/
+│   │   ├── devcontainer-feature.json
+│   │   └── install.sh
+│   └── mysearch-jumper/
 │       ├── devcontainer-feature.json
 │       └── install.sh
 ├── .devcontainer/
@@ -75,11 +78,14 @@ C:\OneDrive\DevContainers\opt\                      /opt/
 │   ├── devcontainer-hooks/                         │   ├── devcontainer-hooks/
 │   │   ├── post-start.sh                           │   │   ├── post-start.sh
 │   │   └── link-agents.sh                          │   │   └── link-agents.sh
-└── rp-chat-ui/                                     └── rp-chat-ui/
-    ├── devcontainer-hooks/                             ├── devcontainer-hooks/
-    │   ├── post-start.sh                               │   ├── post-start.sh
-    └── tools/                                          └── tools/
-        └── append_turn.py                                  └── append_turn.py
+├── rp-chat-ui/                                     ├── rp-chat-ui/
+│   ├── devcontainer-hooks/                             ├── devcontainer-hooks/
+│   │   ├── post-start.sh                               │   ├── post-start.sh
+│   └── tools/                                          └── tools/
+│       └── append_turn.py                                  └── append_turn.py
+└── mysearch-jumper/                                └── mysearch-jumper/
+    └── devcontainer-hooks/                             └── devcontainer-hooks/
+        └── post-start.sh                                   └── post-start.sh
 ```
 
 ### ライフサイクルフックの委譲（Crash-Safe 呼び出し）
@@ -104,6 +110,7 @@ C:\OneDrive\DevContainers\opt\                      /opt/
 | **`novel-tools`** | `/opt/novel-tools` | 小説執筆・編集支援スクリプト（Markdown 結合・分割・シフト等）のロードとパス設定 | `3w36zj6.textlint`<br>`ritwickdey.liveserver` |
 | **`rp-chat-ui`** | `/opt/rp-chat-ui` | RPチャット用 VS Code 拡張機能のシンボリックリンク設定とツール連携 | — |
 | **`rp-chat-agent`** | `/opt/rp-chat-agent` | RPチャット用エージェント定義・設定のシンボリックリンク配置 | — |
+| **`mysearch-jumper`** | `/opt/mysearch-jumper` | 検索ジャンプ用 VS Code 拡張機能のシンボリックリンク設定とフック実行 | — |
 
 ---
 

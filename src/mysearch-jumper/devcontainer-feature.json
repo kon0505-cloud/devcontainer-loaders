@@ -1,0 +1,14 @@
+{
+  "id": "mysearch-jumper",
+  "version": "1.0.0",
+  "name": "mysearch-jumper Symlink Installer",
+  "description": "Mounts host mysearch-jumper directory and links it directly to VS Code extensions.",
+  "mounts": [
+    {
+      "source": "${localEnv:SystemDrive}/OneDrive/DevContainers/opt/mysearch-jumper",
+      "target": "/opt/mysearch-jumper",
+      "type": "bind"
+    }
+  ],
+  "postStartCommand": "if [ -f /opt/mysearch-jumper/devcontainer-hooks/post-start.sh ]; then bash /opt/mysearch-jumper/devcontainer-hooks/post-start.sh; fi"
+}

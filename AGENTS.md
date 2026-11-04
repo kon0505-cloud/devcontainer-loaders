@@ -29,11 +29,14 @@ C:\OneDrive\DevContainers\opt\                      /opt/
 │   ├── devcontainer-hooks/                         │   ├── devcontainer-hooks/
 │   │   ├── post-start.sh                           │   │   ├── post-start.sh
 │   │   └── link-agents.sh                          │   │   └── link-agents.sh
-└── rp-chat-ui/                                     └── rp-chat-ui/
-    ├── devcontainer-hooks/                             ├── devcontainer-hooks/
-    │   ├── post-start.sh                               │   ├── post-start.sh
-    └── tools/                                          └── tools/
-        └── append_turn.py                                  └── append_turn.py
+├── rp-chat-ui/                                     ├── rp-chat-ui/
+│   ├── devcontainer-hooks/                         │   ├── devcontainer-hooks/
+│   │   ├── post-start.sh                           │   │   ├── post-start.sh
+│   └── tools/                                      │   └── tools/
+│       └── append_turn.py                          │       └── append_turn.py
+└── mysearch-jumper/                                └── mysearch-jumper/
+    └── devcontainer-hooks/                             └── devcontainer-hooks/
+        └── post-start.sh                                   └── post-start.sh
 ```
 
 ---
@@ -66,6 +69,18 @@ C:\OneDrive\DevContainers\opt\                      /opt/
   - `rp-chat-append` (`~/.local/bin/rp-chat-append`)
   - VS Code 拡張機能リンク (`~/.vscode-server/extensions/yun-komochi.rp-chat-ui-0.1.0` -> `/opt/rp-chat-ui`)
   - エージェントアセットリンク (`/opt/rp-chat-ui/tools/link-agents.sh`)
+
+### ④ `src/rp-chat-agent`
+- **マウント先**: `/opt/rp-chat-agent`
+- **呼び出しフック**:
+  - `postStartCommand`: `/opt/rp-chat-agent/devcontainer-hooks/post-start.sh`
+
+### ⑤ `src/mysearch-jumper`
+- **マウント先**: `/opt/mysearch-jumper`
+- **呼び出しフック**:
+  - `postStartCommand`: `/opt/mysearch-jumper/devcontainer-hooks/post-start.sh`
+- **登録コマンド・拡張機能**:
+  - VS Code 拡張機能リンク (`~/.vscode-server/extensions/...` -> `/opt/mysearch-jumper`)
 
 ---
 
