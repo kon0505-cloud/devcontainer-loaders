@@ -17,7 +17,7 @@ Docker CLI の新機能（Docker Debug など）の利用を促すプロンプ�
 ## 2. 失敗したアプローチとその原因
 
 ### 試みたこと
-Dev Container Feature ([`src/my-gemini-tools/devcontainer-feature.json`](file:///workspaces/devcontainer-scripts/src/my-gemini-tools/devcontainer-feature.json)) 内に環境変数を追加し、バージョン `1.0.1` として GitHub Container Registry (GHCR) に公開・コンテナをリビルドしました。
+Dev Container Feature ([`src/gemini-tools/devcontainer-feature.json`](file:///workspaces/devcontainer-loaders/src/gemini-tools/devcontainer-feature.json)) 内に環境変数を追加し、バージョン `1.0.1` として GitHub Container Registry (GHCR) に公開・コンテナをリビルドしました。
 
 ```json
   "containerEnv": {
@@ -77,7 +77,7 @@ export DOCKER_CLI_HINTS=false
 
 ### なぜ「1.0.0 に巻き戻す」ことができないのか？
 1. **OCI レジストリ（GHCR）の不変性（Immutability）**:
-   - [`.github/workflows/release.yaml`](file:///workspaces/devcontainer-scripts/.github/workflows/release.yaml) で使用している公式の `devcontainers/action` は、一度公開されたバージョンタグ（`1.0.0` や `1.0.1`）を不変として扱います。
+   - [`.github/workflows/release.yaml`](file:///workspaces/devcontainer-loaders/.github/workflows/release.yaml) で使用している公式の `devcontainers/action` は、一度公開されたバージョンタグ（`1.0.0` や `1.0.1`）を不変として扱います。
    - レジストリ上に既に同一バージョンが存在する場合、**自動的に公開をスキップ**します。
    - そのため、リポジトリのコード上でバージョンを `1.0.0` に戻して push しても、GHCR 上の `1.0.0` は古い内容のまま更新されず、`:1` や `:latest` も `1.0.1` を指したまま不整合が起きます。
 2. **手元のキャッシュ（Docker / devcontainer-lock.json）**:

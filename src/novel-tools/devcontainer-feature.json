@@ -1,11 +1,11 @@
 {
-  "id": "my-novel-tools",
+  "id": "novel-tools",
   "version": "1.0.0",
   "name": "My Novel Tools",
   "description": "小説の執筆に役立つスクリプトをまとめたフォルダ",
   "mounts": [
     {
-      "source": "${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/Antigravity/novel_tools",
+      "source": "${localEnv:SystemDrive}/OneDrive/Omochi/Antigravity/novel_tools",
       "target": "${containerWorkspaceFolder}/tools",
       "type": "bind"
     }

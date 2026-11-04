@@ -1,4 +1,4 @@
-# devcontainer-scripts
+# devcontainer-loaders
 
 OneDrive 等のクラウドストレージ配下に散らばる複数の Dev Container プロジェクトを一元管理し、**共通環境（エージェントデータ同期、シェル履歴、Git 設定）の標準化**と、**差分検知付き省メモリ一括自動リビルド**を実現するための包括的なツールセットです。
 
@@ -22,7 +22,7 @@ OneDrive 等のクラウドストレージ配下に散らばる複数の Dev Con
 ## 📁 フォルダ・ファイル構成
 
 ```text
-devcontainer-scripts/
+devcontainer-loaders/
 ├── .github/
 │   └── workflows/
 │       └── release.yaml        # [CI/CD] GHCR 自動公開ワークフロー
@@ -35,7 +35,7 @@ devcontainer-scripts/
 │   ├── RemoveVSCodeDevContainer.reg
 │   └── README.md
 ├── src/
-│   └── my-gemini-tools/        # 全プロジェクト共通の自作 Dev Container Feature
+│   └── gemini-tools/        # 全プロジェクト共通の自作 Dev Container Feature
 │       ├── devcontainer-feature.json
 │       └── install.sh
 ├── rebuild-devcontainers.ps1   # [Host] 差分検知 ＆ 自動停止（省メモリ）一括リビルドスクリプト
@@ -55,14 +55,14 @@ devcontainer-scripts/
 
 ## ✨ コア機能と仕組み
 
-### 1. 共通設定の Feature 化 (`my-gemini-tools`)
+### 1. 共通設定の Feature 化 (`gemini-tools`)
 各プロジェクトで重複していた共通設定を、独自の **Dev Container Feature** としてカプセル化しています。
 
 - **共通マウント (`mounts`)**:
   - `devcontainer-gemini-data-${devcontainerId}`（Gemini データ永続化ボリューム）
   - `devcontainer-node_modules-${devcontainerId}`（node_modules 用ボリューム）
   - ホストの `~/.gitconfig`（リードオンリー）
-  - OneDrive 上の共通スクリプト（`OneDrive/Omochi/devcontainer-scripts`）
+  - OneDrive 上の共通スクリプト（`OneDrive/DevContainers/opt/gemini-tools`）
 - **ライフサイクルフック**:
   - `postCreateCommand`: Gemini のセットアップスクリプト自動実行（`setup-gemini.sh`）
   - `postStartCommand`: `backup-gemini --sync` による起動時同期リストア
@@ -72,7 +72,7 @@ devcontainer-scripts/
 - **GHCR（推奨・標準）**:
   GitHub Container Registry に公開されているため、各プロジェクトの `devcontainer.json` に URL を 1 行書くだけで、ジャンクションやローカル配置なしにどの PC からでも自動ダウンロード・適用されます。
 - **ローカル実体コピー (`-LocalFeature`)**:
-  手元で Feature を改修・試作したい場合、`rebuild-devcontainers.ps1 -LocalFeature` を実行することで、各プロジェクトの `.devcontainer/my-gemini-tools` へ実体コピーを安全に同期できます（※Windows のジャンクションは Docker ビルド時にリンクが見失われてエラーとなるため、実体コピー方式を採用しています）。
+  手元で Feature を改修・試作したい場合、`rebuild-devcontainers.ps1 -LocalFeature` を実行することで、各プロジェクトの `.devcontainer/gemini-tools` へ実体コピーを安全に同期できます（※Windows のジャンクションは Docker ビルド時にリンクが見失われてエラーとなるため、実体コピー方式を採用しています）。
 
 ### 3. 差分検知 ＆ 省メモリ自動停止リビルド (`rebuild-devcontainers.ps1`)
 - **SHA256 ハッシュによる差分検知**:
@@ -114,7 +114,7 @@ devcontainer-scripts/
 flowchart TD
     subgraph Host["ホスト環境（Windows / PowerShell）"]
         H1["rebuild-devcontainers.ps1 実行"] --> H2["OneDrive 配下の全プロジェクト探索"]
-        H2 --> H3["ジャンクション（my-gemini-tools）自動リンク"]
+        H2 --> H3["ジャンクション（gemini-tools）自動リンク"]
         H3 --> H4{"SHA256 差分検知<br>(変更あり?)"}
         H4 -- "Yes" --> H5["devcontainer build & up"]
         H5 --> H6["コンテナ即時停止（省メモリ解放）"]
@@ -143,7 +143,7 @@ flowchart TD
 
 ## 🛠️ 各プロジェクトでの書き方（移行手順）
 
-各プロジェクトの `devcontainer.json` では、共通の `mounts` や `backup-gemini` 関連のコマンドを削除し、`features` に `"./my-gemini-tools": {}` を追加するだけで完了します。
+各プロジェクトの `devcontainer.json` では、共通の `mounts` や `backup-gemini` 関連のコマンドを削除し、`features` に `"./gemini-tools": {}` を追加するだけで完了します。
 
 ### 移行前と移行後の比較
 
@@ -159,11 +159,11 @@ flowchart TD
   "mounts": [
     "source=devcontainer-gemini-data-${devcontainerId},target=/var/gemini-data,type=volume",
     "source=devcontainer-node_modules-${devcontainerId},target=${containerWorkspaceFolder}/node_modules,type=volume",
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig,target=/var/host-gitconfig,type=bind,readonly",
-    "source=${localEnv:SystemDrive}${localEnv:HOME}/OneDrive/Omochi/devcontainer-scripts,target=/var/devcontainer-scripts,type=bind"
+    "source=${localEnv:USERPROFILE}/.gitconfig,target=/var/host-gitconfig,type=bind,readonly",
+    "source=${localEnv:SystemDrive}/OneDrive/DevContainers/opt/gemini-tools,target=/opt/gemini-tools,type=bind"
   ],
   // 共通スクリプトと個別コマンドが合体して複雑
-  "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force' && bash /var/devcontainer-scripts/setup-gemini.sh",
+  "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force' && bash /opt/gemini-tools/setup-gemini.sh",
   "postStartCommand": "backup-gemini --sync",
   "postAttachCommand": "backup-gemini --auto"
 }
@@ -177,7 +177,7 @@ flowchart TD
   "features": {
     "ghcr.io/devcontainers/features/powershell:2.0.3": {},
     // ★ GHCR から共通 Feature を取得（ジャンクション不要！）
-    "ghcr.io/kon0505-cloud/devcontainer-scripts/my-gemini-tools:1": {}
+    "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools:1": {}
   },
   // ★ プロジェクト固有のコマンドだけをシンプルに記述可能
   "postCreateCommand": "pwsh -Command 'Install-Module Pester -Force'"
@@ -185,7 +185,7 @@ flowchart TD
 ```
 > [!TIP]
 > - Feature 側の `postCreateCommand` や `postStartCommand` は、プロジェクト側の設定と競合せず、自動的に両方実行されます。
-> - 手元で Feature 自体を試作・改修したい場合は、一時的に `"./my-gemini-tools": {}` と記述した上で `.\rebuild-devcontainers.ps1 -LocalFeature` を実行することで、実体コピーによるローカル検証が可能です。
+> - 手元で Feature 自体を試作・改修したい場合は、一時的に `"./gemini-tools": {}` と記述した上で `.\rebuild-devcontainers.ps1 -LocalFeature` を実行することで、実体コピーによるローカル検証が可能です。
 
 ### `.gitignore` の設定
 バックアップデータ（`.gemini_backup`）は OneDrive 等のクラウドストレージで同期するため、Git リポジトリにはコミットしないよう設定します：
@@ -257,7 +257,7 @@ Windows の PowerShell から実行します。自動的に OneDrive 配下の `
 ```
 
 #### ローカル Feature 実体コピー・同期 (`-LocalFeature` または `-CopyLocal`)
-GHCR ではなくローカルの `src/my-gemini-tools` を直接各プロジェクトに実体コピーして開発・検証したい場合：
+GHCR ではなくローカルの `src/gemini-tools` を直接各プロジェクトに実体コピーして開発・検証したい場合：
 ```powershell
 .\rebuild-devcontainers.ps1 -LocalFeature
 ```
@@ -295,7 +295,7 @@ backup-gemini --check
  [OK] ~/.gemini -> /var/gemini-data
  [OK] ~/.bash_history -> /var/gemini-data/commandhistory/.bash_history
  [OK] 'backup-gemini' CLI is available: /usr/local/bin/backup-gemini
- [OK] Git safe.directory is registered (/workspaces/devcontainer-scripts)
+ [OK] Git safe.directory is registered (/workspaces/devcontainer-loaders)
  [OK] Git core.pager is 'cat' (pager hang protection enabled)
  [OK] Git core.fileMode is 'false' (file mode diff ignored)
  [OK] Git core.editor is 'vi'
@@ -326,13 +326,13 @@ All essential configurations are healthy!
 
 ## 📦 GitHub Container Registry (GHCR) の運用について
 
-本リポジトリの `src/my-gemini-tools` は、GitHub Actions によって GitHub Container Registry (GHCR) に自動公開されています。
+本リポジトリの `src/gemini-tools` は、GitHub Actions によって GitHub Container Registry (GHCR) に自動公開されています。
 
 各プロジェクトの `devcontainer.json` に以下のように記述するだけで、ジャンクションや手元へのファイル配置不要で自動ダウンロード・適用されます：
 
 ```jsonc
 "features": {
-  "ghcr.io/kon0505-cloud/devcontainer-scripts/my-gemini-tools:1": {}
+  "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools:1": {}
 }
 ```
 （バージョンを常に最新に保ちたい場合は `:1` または `:latest` を指定可能です）

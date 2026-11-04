@@ -2,12 +2,12 @@
 set -e
 
 echo "=========================================="
-echo "Installing Feature: my-gemini-tools"
+echo "Installing Feature: gemini-tools"
 echo "=========================================="
 
 # マウントポイントのディレクトリを作成（必要に応じて）
 mkdir -p /var/gemini-data
-mkdir -p /var/devcontainer-scripts
+mkdir -p /opt/gemini-tools
 
-echo "my-gemini-tools installation completed successfully."
+echo "gemini-tools installation completed successfully."
 

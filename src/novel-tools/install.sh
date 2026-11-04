@@ -2,8 +2,8 @@
 set -e
 
 echo "=========================================="
-echo "Installing Feature: my-novel-tools"
+echo "Installing Feature: novel-tools"
 echo "=========================================="
 
-echo "my-novel-tools installation completed successfully."
+echo "novel-tools installation completed successfully."
 

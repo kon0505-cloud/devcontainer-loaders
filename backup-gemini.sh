@@ -3,7 +3,7 @@ set -e
 
 SRC_DIR="/var/gemini-data"
 
-# スクリプト自身のディレクトリを取得（共通配置 /var/devcontainer-scripts 等を解決）
+# スクリプト自身のディレクトリを取得（共通配置 /opt/gemini-tools 等を解決）
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
 
 # ワークスペースディレクトリの解決
