@@ -6,7 +6,9 @@
     "ghcr.io/devcontainers/features/python:1": {
       "version": "latest"
     },
-    "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools:1": {}
+    "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools:1": {},
+    "ghcr.io/kon0505-cloud/devcontainer-loaders/novel-tools:1": {},
+    "ghcr.io/kon0505-cloud/devcontainer-loaders/rp-chat-ui:1": {}
   },
   "customizations": {
     "vscode": {
