@@ -1,6 +1,6 @@
 {
   "id": "gemini-tools",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "name": "My Gemini Tools",
   "description": "Common Gemini data mounts, scripts, and lifecycle hooks",
   "mounts": [
@@ -33,8 +33,8 @@
       ]
     }
   },
-  "postCreateCommand": "if [ -f /opt/gemini-tools/setup-gemini.sh ]; then bash /opt/gemini-tools/setup-gemini.sh; elif [ -f .devcontainer/setup-gemini.sh ]; then bash .devcontainer/setup-gemini.sh; fi",
-  "postStartCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --sync; elif [ -f /opt/gemini-tools/backup-gemini.sh ]; then bash /opt/gemini-tools/backup-gemini.sh --sync; fi",
-  "postAttachCommand": "if command -v backup-gemini >/dev/null 2>&1; then backup-gemini --auto; elif [ -f /opt/gemini-tools/backup-gemini.sh ]; then bash /opt/gemini-tools/backup-gemini.sh --auto; fi"
+  "postCreateCommand": "if [ -f /opt/gemini-tools/devcontainer-hooks/post-create.sh ]; then bash /opt/gemini-tools/devcontainer-hooks/post-create.sh; fi",
+  "postStartCommand": "if [ -f /opt/gemini-tools/devcontainer-hooks/post-start.sh ]; then bash /opt/gemini-tools/devcontainer-hooks/post-start.sh; fi",
+  "postAttachCommand": "if [ -f /opt/gemini-tools/devcontainer-hooks/post-attach.sh ]; then bash /opt/gemini-tools/devcontainer-hooks/post-attach.sh; fi"
 }
 
