@@ -11,9 +11,9 @@
       "integrity": "sha256:fbcad6955caeecc5ad3f7886baf652e25cba5225a6c4c2287c536de2e5607511"
     },
     "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools:1": {
-      "version": "1.0.4",
-      "resolved": "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools@sha256:db7852291ec70d083f67203d6b47a3f82b3898af47ea7bc6b8c9e696ac5e1b2b",
-      "integrity": "sha256:db7852291ec70d083f67203d6b47a3f82b3898af47ea7bc6b8c9e696ac5e1b2b"
+      "version": "1.0.5",
+      "resolved": "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools@sha256:fc3db356d4873da9fbaa3a8679bf6758c619abcce4431b0d0fed8f93ab7de992",
+      "integrity": "sha256:fc3db356d4873da9fbaa3a8679bf6758c619abcce4431b0d0fed8f93ab7de992"
     }
   }
 }
