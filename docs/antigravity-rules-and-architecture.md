@@ -1,0 +1,1 @@
+/opt/gemini-tools/workspacefs/docs/antigravity-rules-and-architecture.md

@@ -1,0 +1,1 @@
+/opt/gemini-tools/workspacefs/docs/ANTIGRAVITY_HOOKS_GUIDE.md

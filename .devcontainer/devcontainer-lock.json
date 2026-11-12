@@ -14,16 +14,6 @@
       "version": "1.0.4",
       "resolved": "ghcr.io/kon0505-cloud/devcontainer-loaders/gemini-tools@sha256:db7852291ec70d083f67203d6b47a3f82b3898af47ea7bc6b8c9e696ac5e1b2b",
       "integrity": "sha256:db7852291ec70d083f67203d6b47a3f82b3898af47ea7bc6b8c9e696ac5e1b2b"
-    },
-    "ghcr.io/kon0505-cloud/devcontainer-loaders/novel-tools:1": {
-      "version": "1.0.1",
-      "resolved": "ghcr.io/kon0505-cloud/devcontainer-loaders/novel-tools@sha256:70fcc525ada1bf2cdffa8e0c96f9d7a389d8a9e3fb8bd1533764bdec3f4cc7df",
-      "integrity": "sha256:70fcc525ada1bf2cdffa8e0c96f9d7a389d8a9e3fb8bd1533764bdec3f4cc7df"
-    },
-    "ghcr.io/kon0505-cloud/devcontainer-loaders/rp-chat-ui:1": {
-      "version": "1.0.4",
-      "resolved": "ghcr.io/kon0505-cloud/devcontainer-loaders/rp-chat-ui@sha256:7f00b2f52e277232c71062b76219519f7810573bb2e2b68f49ac0b7611b7fd9e",
-      "integrity": "sha256:7f00b2f52e277232c71062b76219519f7810573bb2e2b68f49ac0b7611b7fd9e"
     }
   }
 }

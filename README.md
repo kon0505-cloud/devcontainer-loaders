@@ -61,31 +61,26 @@ devcontainer-loaders/
 ```text
 Host (Windows)                                      Container (Linux)
 C:\OneDrive\DevContainers\opt\                      /opt/
-├── gemini-tools/                                   ├── gemini-tools/
-│   ├── devcontainer-hooks/                         │   ├── devcontainer-hooks/
-│   │   ├── post-create.sh                          │   │   ├── post-create.sh
-│   │   ├── post-start.sh                           │   │   ├── post-start.sh
-│   │   └── post-attach.sh                          │   │   └── post-attach.sh
-│   ├── backup-gemini.sh                            │   ├── backup-gemini.sh
-│   └── setup-gemini.sh                             │   └── setup-gemini.sh
-├── novel-tools/                                    ├── novel-tools/
-│   ├── devcontainer-hooks/                         │   ├── devcontainer-hooks/
-│   │   └── post-start.sh                           │   │   └── post-start.sh
-│   ├── join_markdown.py                            │   ├── join_markdown.py
-│   ├── shift_markdown.py                           │   ├── shift_markdown.py
-│   └── split_markdown.py                           │   └── split_markdown.py
-├── rp-chat-agent/                                  ├── rp-chat-agent/
-│   ├── devcontainer-hooks/                         │   ├── devcontainer-hooks/
-│   │   ├── post-start.sh                           │   │   ├── post-start.sh
-│   │   └── link-agents.sh                          │   │   └── link-agents.sh
-├── rp-chat-ui/                                     ├── rp-chat-ui/
-│   ├── devcontainer-hooks/                             ├── devcontainer-hooks/
-│   │   ├── post-start.sh                               │   ├── post-start.sh
-│   └── tools/                                          └── tools/
-│       └── append_turn.py                                  └── append_turn.py
-└── mysearch-jumper/                                └── mysearch-jumper/
-    └── devcontainer-hooks/                             └── devcontainer-hooks/
-        └── post-start.sh                                   └── post-start.sh
+└── gemini-tools/                                   └── gemini-tools/
+    ├── devcontainer-hooks/                             ├── devcontainer-hooks/
+    │   ├── post-create.sh                              │   ├── post-create.sh
+    │   ├── post-start.sh                               │   ├── post-start.sh
+    │   └── post-attach.sh                              │   └── post-attach.sh
+    ├── hooks/                                          ├── hooks/
+    │   ├── antigravity.json                            │   ├── antigravity.json
+    │   └── git/post-commit                             │   └── git/post-commit
+    ├── rootfs/usr/local/bin/                           ├── rootfs/usr/local/bin/
+    │   ├── backup-gemini                               │   ├── backup-gemini
+    │   ├── link-features                               │   ├── link-features
+    │   └── notify-gemini                               │   └── notify-gemini
+    ├── homefs/.vscode-server/extensions/               ├── homefs/.vscode-server/extensions/
+    │   ├── antigravity-explorer-sender                 │   ├── antigravity-explorer-sender
+    │   └── antigravity-reloader                        │   └── antigravity-reloader
+    ├── workspacefs/docs/                               ├── workspacefs/docs/
+    │   ├── antigravity-rules-and-architecture.md       │   ├── antigravity-rules-and-architecture.md
+    │   ├── ANTIGRAVITY_HOOKS_GUIDE.md                  │   ├── ANTIGRAVITY_HOOKS_GUIDE.md
+    │   └── ANTIGRAVITY_TRANSCRIPT_GUIDE.md             │   └── ANTIGRAVITY_TRANSCRIPT_GUIDE.md
+    └── setup-gemini.sh                                 └── setup-gemini.sh
 ```
 
 ### ライフサイクルフックの委譲（Crash-Safe 呼び出し）
@@ -157,9 +152,16 @@ C:\OneDrive\DevContainers\opt\                      /opt/
 
 1. **Feature 定義と実体ロジックの分離**:
    - `src/<ツール名>/devcontainer-feature.json` にシェル処理を直接インラインで書き込まず、`/opt/<ツール名>/devcontainer-hooks/` 内のスクリプトへ委譲する構成を維持してください。
-2. **防御的なフック呼び出し（Crash-safe）**:
+2. **rootfs / homefs ツリーマッピング規則**:
+   - シンボリックリンク配布用の資産は、配布先と同じツリー構造（コンテナルート `/` 直下への配置は `/opt/<feature>/rootfs/`、ユーザーホーム `$HOME` 直下への配置は `/opt/<feature>/homefs/`）に配置してください。
+   - CLI ツールは拡張子（`.py` や `.sh`）を付けず、適切な shebang（`#!/usr/bin/env python3` 等）と実行権限（`chmod +x`）を付与してコマンド名そのもので配置してください。
+3. **フックのドロップイン定義規則（Git / Antigravity）**:
+   - 各 Feature が提供するライフサイクルフックは、個別スクリプトで直接登録せず、`/opt/<feature>/hooks/` 配下のファイルとして定義してください（`gemini-tools` の `link-features` により自動で一括マージ・設定されます）。
+     - Antigravity フック: `/opt/<feature>/hooks/antigravity.json`（部分 JSON 定義）
+     - Git フック: `/opt/<feature>/hooks/git/<event>`（例: `post-commit` スクリプト）
+4. **防御的なフック呼び出し（Crash-safe）**:
    - マウント元が存在しない環境やファイル欠損時でもコンテナ起動が停止（exit code 1 等）しないよう、呼び出しは必ず `if [ -f /opt/... ]; then bash /opt/...; fi` 形式を維持してください。
-3. **改行コードと実行権限**:
+5. **改行コードと実行権限**:
    - シェルスクリプトはホスト（Windows）とコンテナ（Linux）をまたぐため、改行コードは常に **LF**、実行権限は `chmod +x` を付与してください（CRLF になると `\r: command not found` エラーが発生します）。
 
 ---
